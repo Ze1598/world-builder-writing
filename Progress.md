@@ -4,12 +4,59 @@ This file is the durable execution log for the project. Update it at the end of 
 
 ## Current status
 
-- **Current roadmap feature:** F-02 — Universe workspace and isolation foundation
+- **Current roadmap feature:** F-03 — Managed lookup administration
 - **Feature status:** Not started
-- **Last completed feature:** F-01 — Database foundation and migration workflow
+- **Last completed feature:** F-02 — Universe workspace and isolation foundation
 - **Last updated:** 2026-07-21
 
 ## Completed work
+
+### 2026-07-21 — F-02: Universe workspace and isolation foundation
+
+**Status:** Complete
+
+**Implemented:**
+
+- Added validated universe input and immutable universe view models.
+- Added universe repository and application service boundaries for create, list, retrieve, and update operations.
+- Enforced trimmed required names and case-insensitive name uniqueness.
+- Added reusable same-universe and collection isolation rules.
+- Added cached process-level database engine and session-factory resources outside Streamlit session state.
+- Added a global sidebar universe selector with safe recovery when the stored selection no longer exists.
+- Added a reusable guard for universe-dependent pages.
+- Added the Universes page with creation, selection, detail, Markdown description, editing, and empty states.
+- Updated the home page to show the current universe and use `just migrate` in startup guidance.
+- Deliberately exposed no universe deletion operation.
+
+**Files or migrations:**
+
+- `src/world_builder/domain/errors.py`
+- `src/world_builder/domain/models.py`
+- `src/world_builder/domain/rules.py`
+- `src/world_builder/domain/services/universes.py`
+- `src/world_builder/persistence/repositories/universes.py`
+- `src/world_builder/persistence/runtime.py`
+- `src/world_builder/pages/context.py`
+- `src/world_builder/pages/universes.py`
+- Universe service, isolation-rule, and Streamlit shell tests
+- No database migration was required because the universe table was introduced by F-01.
+
+**Verification:**
+
+- `just check` passed Ruff linting, formatting verification, strict mypy, and all 21 tests.
+- Streamlit AppTest verified the empty, migrated universe workspace starts without UI exceptions.
+- `just run 8911` started successfully on a non-default port against a migrated temporary database and stopped cleanly.
+
+**Decisions or deviations:**
+
+- Global lookup category definitions remain application-level; universe selection scopes their values in subsequent features.
+- SQLite-loaded timestamps are normalized to UTC in domain views because SQLite omits timezone metadata.
+- Streamlit pages use explicit stable URL paths so callable page names cannot collide.
+- The known `.pth` import failure recurred during live startup; the prescribed `just rebuild-environment` recovery restored installed package imports.
+
+**Backlog created:**
+
+- None.
 
 ### 2026-07-21 — F-01: Database foundation and migration workflow
 

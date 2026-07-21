@@ -1,4 +1,4 @@
-"""Shared temporary database fixtures."""
+"""Shared test fixtures."""
 
 from collections.abc import Iterator
 from pathlib import Path
