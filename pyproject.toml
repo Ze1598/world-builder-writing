@@ -12,6 +12,9 @@ dependencies = [
     "streamlit>=1.45,<2",
 ]
 
+[project.scripts]
+world-builder = "world_builder.cli:main"
+
 [dependency-groups]
 dev = [
     "mypy>=1.15,<2",
@@ -42,4 +45,3 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 python_version = "3.12"
 strict = true
 files = ["src", "tests"]
-
