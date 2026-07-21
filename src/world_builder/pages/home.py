@@ -25,6 +25,7 @@ def render_home(settings: Settings, selected_universe: UniverseView | None = Non
             f"({schema_status.state.value}). Stop the app and run "
             "`just migrate`, then restart."
         )
+        return
 
     if selected_universe is None:
         st.info("Create a universe from the Universes page to begin.")

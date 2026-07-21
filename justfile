@@ -10,7 +10,7 @@ sync:
 
 # Start Streamlit on a configurable non-default port.
 run port="8765":
-    uv run streamlit run src/world_builder/app.py --server.port {{port}}
+    uv run streamlit run src/streamlit_app.py --server.port {{port}}
 
 # Report whether the configured database matches the current migration head.
 schema-status:
@@ -48,4 +48,3 @@ rebuild-environment:
     rm -rf .venv
     uv cache clean
     uv sync --all-packages
-

@@ -259,7 +259,7 @@ Each feature below is intended to fit into an isolated implementation chat. A fe
 **Acceptance criteria:**
 
 - `uv sync` succeeds from a clean checkout.
-- `uv run streamlit run src/world_builder/app.py` starts the application.
+- `just run` starts `src/streamlit_app.py` on a configurable non-default port.
 - Lint, type-check, and test commands pass.
 - No canonical data is stored in Streamlit session state.
 
@@ -662,4 +662,3 @@ A feature is complete only when:
 - Full manuscript composition features.
 - Native desktop packaging.
 - Automatic merging of libraries edited on separate machines.
-

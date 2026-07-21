@@ -96,7 +96,7 @@ def render_universes(service: UniverseService, selected: UniverseView | None) ->
                 "Selected" if selected is not None and selected.id == universe.id else "Select",
                 key=f"select-universe-{universe.id}",
                 disabled=selected is not None and selected.id == universe.id,
-                use_container_width=True,
+                width="stretch",
             ):
                 st.session_state[SELECTED_UNIVERSE_KEY] = universe.id
                 st.rerun()

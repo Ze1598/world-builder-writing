@@ -18,7 +18,7 @@ def test_app_renders_empty_universe_workspace(
     monkeypatch.setenv("WORLD_BUILDER_DATA_DIR", str(data_directory))
     get_settings.cache_clear()
 
-    app = AppTest.from_file("src/world_builder/app.py", default_timeout=10).run()
+    app = AppTest.from_file("src/streamlit_app.py", default_timeout=10).run()
 
     assert not app.exception
     assert app.title[0].value == "World Builder"
