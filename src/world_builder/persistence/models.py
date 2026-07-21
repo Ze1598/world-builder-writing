@@ -38,6 +38,13 @@ class RelationshipDirectionality(StrEnum):
     DIRECTIONAL = "directional"
 
 
+class ArtworkOwnerKind(StrEnum):
+    """Entity types that can physically own an artwork file."""
+
+    CHARACTER = "character"
+    GROUP = "group"
+
+
 class Base(DeclarativeBase):
     """Base for all SQLAlchemy mappings."""
 
@@ -76,6 +83,7 @@ class Universe(TimestampMixin, Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    artworks: Mapped[list["Artwork"]] = relationship(back_populates="universe")
 
 
 class LookupCategory(TimestampMixin, Base):
@@ -138,3 +146,43 @@ class LookupValue(TimestampMixin, Base):
 
     universe: Mapped[Universe] = relationship(back_populates="lookup_values")
     category: Mapped[LookupCategory] = relationship(back_populates="values")
+
+
+class Artwork(TimestampMixin, Base):
+    """Metadata for an image stored in the managed artwork filesystem."""
+
+    __tablename__ = "artworks"
+    __table_args__ = (
+        CheckConstraint(
+            "owner_kind IN ('character', 'group')",
+            name="valid_artwork_owner_kind",
+        ),
+        CheckConstraint(
+            "owner_kind = 'character' OR universe_id IS NOT NULL",
+            name="group_artwork_requires_universe",
+        ),
+        UniqueConstraint("relative_path", name="uq_artworks_relative_path"),
+        Index("ix_artworks_universe_id", "universe_id"),
+        Index("ix_artworks_owner", "owner_kind", "owner_id"),
+    )
+
+    id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        primary_key=True,
+        default=new_identifier,
+    )
+    universe_id: Mapped[str | None] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("universes.id", ondelete="RESTRICT"),
+    )
+    owner_kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    owner_id: Mapped[str] = mapped_column(String(IDENTIFIER_LENGTH), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    mime_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    relative_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    file_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    universe: Mapped[Universe | None] = relationship(back_populates="artworks")

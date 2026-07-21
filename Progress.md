@@ -4,12 +4,50 @@ This file is the durable execution log for the project. Update it at the end of 
 
 ## Current status
 
-- **Current roadmap feature:** F-04 — Character records and artwork storage
+- **Current roadmap feature:** F-05 — Character creation, profiles, and unassigned pool
 - **Feature status:** Not started
-- **Last completed feature:** F-03 — Managed lookup administration
+- **Last completed feature:** F-04 — Artwork filesystem service
 - **Last updated:** 2026-07-21
 
 ## Completed work
+
+### 2026-07-21 — F-04: Artwork filesystem service
+
+**Status:** Complete
+
+**Implemented:**
+
+- Added artwork metadata with polymorphic character/group ownership, optional universe ownership, primary designation, original filename, MIME type, relative path, and byte size.
+- Added GUID-only path builders for unassigned characters, universe characters, and flat universe group artwork.
+- Added content-based JPEG, PNG, and WebP validation with extension matching and portable Windows/POSIX filename handling.
+- Added atomic image imports that cannot overwrite an existing destination.
+- Added safe relative-path resolution, image reads, explicit missing-file errors, missing-file reports, and orphan detection.
+- Added an artwork repository and atomic application service that removes the imported file when database persistence fails.
+- Kept image bytes outside SQLite; only metadata and POSIX-style relative paths are stored.
+
+**Files or migrations:**
+
+- `alembic/versions/20260721_0002_artwork_metadata.py`
+- `src/world_builder/storage/artwork.py`
+- `src/world_builder/domain/services/artworks.py`
+- `src/world_builder/persistence/repositories/artworks.py`
+- Artwork domain models, persistence mappings, and storage errors
+- Artwork service and filesystem tests under `tests/domain/` and `tests/storage/`
+
+**Verification:**
+
+- `just ready` passed Ruff formatting and linting, strict mypy, and all 43 tests.
+- Tests cover unassigned, assigned, and flat group paths; Windows-style filenames; invalid files and extensions; collision protection; safe path resolution; reads; missing files; orphans; metadata persistence; and filesystem rollback on a database foreign-key failure.
+
+**Decisions or deviations:**
+
+- Artwork ownership uses `owner_kind` and `owner_id` because character and group tables are introduced by later feature migrations; their services will enforce owner existence and universe alignment.
+- The storage layer normalizes JPEG files to `.jpg` while preserving the portable original filename as metadata.
+- Temporary import files use GUID names and are promoted atomically within the destination filesystem.
+
+**Backlog created:**
+
+- None.
 
 ### 2026-07-21 — F-03: Managed lookup administration
 

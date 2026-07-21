@@ -2,9 +2,9 @@
 
 from datetime import UTC, datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from world_builder.persistence.models import RelationshipDirectionality
+from world_builder.persistence.models import ArtworkOwnerKind, RelationshipDirectionality
 
 
 class UniverseInput(BaseModel):
@@ -82,3 +82,66 @@ class LookupValueView(BaseModel):
     display_order: int
     is_active: bool
     relationship_directionality: RelationshipDirectionality | None
+
+
+class ArtworkInput(BaseModel):
+    """Validated metadata used while importing an artwork file."""
+
+    model_config = ConfigDict(frozen=True)
+
+    owner_kind: ArtworkOwnerKind
+    owner_id: str
+    universe_id: str | None = None
+    title: str = Field(min_length=1, max_length=200)
+    description: str = Field(min_length=1)
+    original_filename: str = Field(min_length=1, max_length=255)
+    is_primary: bool = False
+
+    @field_validator("owner_id")
+    @classmethod
+    def validate_owner_identifier(cls, value: str) -> str:
+        """Require a canonical GUID owner identifier."""
+        from uuid import UUID
+
+        return str(UUID(value))
+
+    @field_validator("universe_id")
+    @classmethod
+    def validate_universe_identifier(cls, value: str | None) -> str | None:
+        """Require a canonical GUID universe identifier when assigned."""
+        if value is None:
+            return None
+        from uuid import UUID
+
+        return str(UUID(value))
+
+    @field_validator("title", "description", "original_filename", mode="before")
+    @classmethod
+    def strip_artwork_text(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def validate_owner_location(self) -> "ArtworkInput":
+        if self.owner_kind is ArtworkOwnerKind.GROUP and self.universe_id is None:
+            raise ValueError("Group artwork requires an assigned universe.")
+        if self.owner_kind is ArtworkOwnerKind.GROUP and self.is_primary:
+            raise ValueError("Only character artwork can be primary.")
+        return self
+
+
+class ArtworkView(BaseModel):
+    """Read-only artwork metadata returned after a successful import."""
+
+    model_config = ConfigDict(from_attributes=True, frozen=True)
+
+    id: str
+    universe_id: str | None
+    owner_kind: ArtworkOwnerKind
+    owner_id: str
+    title: str
+    description: str
+    original_filename: str
+    mime_type: str
+    relative_path: str
+    file_size: int
+    is_primary: bool
