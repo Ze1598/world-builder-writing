@@ -4,12 +4,61 @@ This file is the durable execution log for the project. Update it at the end of 
 
 ## Current status
 
-- **Current roadmap feature:** F-03 — Managed lookup administration
+- **Current roadmap feature:** F-04 — Character records and artwork storage
 - **Feature status:** Not started
-- **Last completed feature:** F-02 — Universe workspace and isolation foundation
+- **Last completed feature:** F-03 — Managed lookup administration
 - **Last updated:** 2026-07-21
 
 ## Completed work
+
+### 2026-07-21 — F-03: Managed lookup administration
+
+**Status:** Complete
+
+**Implemented:**
+
+- Added stable definitions for relationship types, membership roles, artwork association roles, and themes/tags.
+- Added editable, universe-scoped defaults with idempotent provisioning for existing universes.
+- Added repository and service operations to create, rename, describe, activate, and deactivate lookup values.
+- Added category-specific validation requiring symmetric or directional behavior for relationship types.
+- Added active-only lookup queries for future creation and editing forms while retaining inactive records for existing references.
+- Added the Managed Lookups Streamlit page with one compact editable table and one save action per category.
+- Added `just ready` to format the codebase and then run every non-mutating quality gate before handoff.
+- Standardized the managed lookup editor and tabular transformations on pandas DataFrames.
+- Added rerun-safe success toasts and immediate failure toasts for managed lookup saves.
+- Color-coded success and failure toasts and set their visible dismissal animation to 1.5 seconds.
+- Replaced the existing-universe card matrix and detail editor with a pandas-backed management table while retaining the dedicated creation form.
+
+**Files or migrations:**
+
+- `src/world_builder/domain/lookups.py`
+- `src/world_builder/domain/models.py`
+- `src/world_builder/domain/services/lookups.py`
+- `src/world_builder/persistence/repositories/lookups.py`
+- `src/world_builder/pages/lookups.py`
+- `src/world_builder/app.py`
+- `tests/domain/test_lookup_service.py`
+- `tests/test_app.py`
+- `justfile`
+- No database migration was required because F-01 already introduced the lookup tables and constraints.
+
+**Verification:**
+
+- `just ready` passed Ruff formatting and linting, strict mypy, and all 29 tests.
+- Streamlit AppTest rendered the lookup page and its provisioned relationship defaults without an exception.
+- Service tests cover default provisioning, editing, activation filtering, uniqueness, directionality, ordering, and universe isolation.
+
+**Decisions or deviations:**
+
+- Category definitions remain stable application concepts while all values and defaults are editable per universe.
+- Themes/tags begin empty; other categories receive editable starter values.
+- Used values have no deletion operation and remain resolvable after deactivation.
+- Lookup values are displayed alphabetically; manual ordering is not exposed.
+- `just check` remains non-mutating for CI; `just ready` is the development handoff command that formats before checking.
+
+**Backlog created:**
+
+- None.
 
 ### 2026-07-21 — F-02: Universe workspace and isolation foundation
 

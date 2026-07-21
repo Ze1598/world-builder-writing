@@ -2,9 +2,11 @@
 
 import streamlit as st
 
+from world_builder.domain.services.lookups import LookupService
 from world_builder.domain.services.universes import UniverseService
 from world_builder.pages.context import render_universe_switcher
 from world_builder.pages.home import render_home
+from world_builder.pages.lookups import render_lookups
 from world_builder.pages.universes import render_universes
 from world_builder.persistence.migrations import SchemaState, get_schema_status
 from world_builder.persistence.runtime import get_session_factory
@@ -36,22 +38,30 @@ def main() -> None:
         navigation.run()
         return
 
-    universe_service = UniverseService(get_session_factory(settings.database_path))
+    session_factory = get_session_factory(settings.database_path)
+    universe_service = UniverseService(session_factory)
+    lookup_service = LookupService(session_factory)
     selected_universe = render_universe_switcher(universe_service)
     navigation = st.navigation(
         [
             st.Page(
                 lambda: render_home(settings, selected_universe),
                 title="Home",
-                icon="🏠",
+                icon=":material/home:",
                 url_path="home",
                 default=True,
             ),
             st.Page(
                 lambda: render_universes(universe_service, selected_universe),
                 title="Universes",
-                icon="🌌",
+                icon=":material/public:",
                 url_path="universes",
+            ),
+            st.Page(
+                lambda: render_lookups(lookup_service, selected_universe),
+                title="Managed lookups",
+                icon=":material/list_alt:",
+                url_path="lookups",
             ),
         ]
     )

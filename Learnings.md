@@ -61,3 +61,47 @@ Cache is currently in-use, waiting for other uv processes to finish
 ```
 
 Stop the running application before rebuilding. Do not force cache removal while another uv process is active.
+
+## Streamlit runtime
+
+### Data editor returns the same tabular type it receives
+
+**Symptom**
+
+Submitting a new managed lookup value fails with:
+
+```text
+AttributeError: 'list' object has no attribute 'to_dict'
+```
+
+The failure occurs when the save handler calls `edited.to_dict(orient="records")`.
+
+**Cause**
+
+`st.data_editor` received a list of dictionaries and therefore returned a list. The handler incorrectly assumed the result would always be a pandas DataFrame.
+
+**Resolution**
+
+Construct a pandas DataFrame before passing data to `st.data_editor`. The returned value remains a DataFrame and can be processed with pandas before conversion at the service boundary. Declare pandas and its mypy stubs as direct project dependencies.
+
+**Caveat**
+
+Streamlit preserves supported input types for `st.data_editor`; changing the input container changes the return type contract.
+
+### Running app continues to serve UI removed from the source
+
+**Symptom**
+
+The source and automated tests contain a revised Streamlit page, but refreshing the browser still shows the previous widgets and layout.
+
+**Cause**
+
+The long-running Streamlit process did not reload after the source change and continued executing the previously loaded page module.
+
+**Resolution**
+
+Stop the existing `just run` process, restart it on the same non-default port, and reload the browser page. Verify the rendered widget structure rather than relying only on the source and AppTest.
+
+**Caveat**
+
+A browser refresh cannot load revised Python code when the server process itself is stale.

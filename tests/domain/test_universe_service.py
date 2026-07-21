@@ -1,5 +1,6 @@
 """Tests for universe application behavior."""
 
+import pandas as pd
 import pytest
 from pydantic import ValidationError
 from sqlalchemy.orm import Session, sessionmaker
@@ -7,6 +8,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from world_builder.domain.errors import DuplicateNameError, RecordNotFoundError
 from world_builder.domain.models import UniverseInput
 from world_builder.domain.services.universes import UniverseService
+from world_builder.pages.universes import _save_universe_frame
 
 
 @pytest.fixture
@@ -61,3 +63,32 @@ def test_universe_input_strips_text() -> None:
 def test_universe_name_is_required() -> None:
     with pytest.raises(ValidationError):
         UniverseInput(name="   ", description="")
+
+
+def test_table_frame_updates_existing_universes(service: UniverseService) -> None:
+    universe = service.create_universe(UniverseInput(name="Before", description="Old"))
+
+    _save_universe_frame(
+        service,
+        pd.DataFrame([{"id": universe.id, "name": "After", "description": "New"}]),
+    )
+
+    updated = service.get_universe(universe.id)
+    assert updated is not None
+    assert (updated.name, updated.description) == ("After", "New")
+
+
+def test_table_frame_rejects_duplicate_universe_names(service: UniverseService) -> None:
+    first = service.create_universe(UniverseInput(name="First"))
+    second = service.create_universe(UniverseInput(name="Second"))
+
+    with pytest.raises(ValueError, match="unique"):
+        _save_universe_frame(
+            service,
+            pd.DataFrame(
+                [
+                    {"id": first.id, "name": "Same", "description": ""},
+                    {"id": second.id, "name": "same", "description": ""},
+                ]
+            ),
+        )

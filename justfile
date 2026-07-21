@@ -43,6 +43,9 @@ test:
 # Run every non-mutating quality gate.
 check: lint format-check typecheck test
 
+# Format the codebase, then run every quality gate before a handoff.
+ready: format check
+
 # Rebuild an environment corrupted by iCloud-hidden .pth files.
 rebuild-environment:
     rm -rf .venv
