@@ -1,0 +1,23 @@
+.DS_Store
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.venv/
+__pycache__/
+*.py[cod]
+
+# Personal literary content is never source-controlled.
+/data/
+/artwork/
+/backups/
+/exports/
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.db
+*.wblibrary
+
+# Local configuration may contain private paths or future API credentials.
+.env
+.env.*
+!.env.example
