@@ -145,3 +145,63 @@ class ArtworkView(BaseModel):
     relative_path: str
     file_size: int
     is_primary: bool
+
+
+class CharacterInput(BaseModel):
+    """Validated fields accepted while creating or editing a character."""
+
+    model_config = ConfigDict(frozen=True)
+
+    name: str = Field(min_length=1, max_length=200)
+    summary: str = Field(min_length=1)
+    universe_id: str | None = None
+
+    @field_validator("name", "summary", mode="before")
+    @classmethod
+    def strip_character_text(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("universe_id")
+    @classmethod
+    def validate_character_universe(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        from uuid import UUID
+
+        return str(UUID(value))
+
+
+class CharacterView(BaseModel):
+    """Read-only character profile fields."""
+
+    model_config = ConfigDict(from_attributes=True, frozen=True)
+
+    id: str
+    universe_id: str | None
+    name: str
+    summary: str
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    @field_validator("created_at", "updated_at", mode="after")
+    @classmethod
+    def normalize_character_utc(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)
+
+
+class ArtworkDetailsInput(BaseModel):
+    """Validated user-authored metadata for a character artwork upload."""
+
+    model_config = ConfigDict(frozen=True)
+
+    title: str = Field(min_length=1, max_length=200)
+    description: str = Field(min_length=1)
+    original_filename: str = Field(min_length=1, max_length=255)
+
+    @field_validator("title", "description", "original_filename", mode="before")
+    @classmethod
+    def strip_artwork_details(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value

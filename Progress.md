@@ -4,12 +4,55 @@ This file is the durable execution log for the project. Update it at the end of 
 
 ## Current status
 
-- **Current roadmap feature:** F-05 — Character creation, profiles, and unassigned pool
+- **Current roadmap feature:** F-06 — Character assignment and cross-universe movement
 - **Feature status:** Not started
-- **Last completed feature:** F-04 — Artwork filesystem service
+- **Last completed feature:** F-05 — Character creation, profiles, and unassigned pool
 - **Last updated:** 2026-07-21
 
 ## Completed work
+
+### 2026-07-21 — F-05: Character creation, profiles, and unassigned pool
+
+**Status:** Complete
+
+**Implemented:**
+
+- Added character records with nullable universe ownership, Markdown summary, and active/disabled state.
+- Added a partial unique database index that prevents more than one primary artwork per character.
+- Added atomic character creation requiring name, summary, artwork title, artwork description, and a validated initial image.
+- Added filesystem rollback when character creation or artwork metadata persistence fails.
+- Added separate universe and unassigned character lists with active, disabled, and all filters.
+- Added character profiles with Markdown summary, primary image, status, artwork gallery, and missing-file reporting.
+- Added character editing, disable/re-enable operations, additional artwork uploads, and primary-artwork switching.
+- Exposed no character deletion operation and blocked universe reassignment through generic character editing.
+- Marked required character and artwork form fields with asterisks and replaced raw validation messages with field-specific user wording.
+- Replaced the character list tables with page-specific sidebar status and profile controls.
+- Standardized profile and gallery previews as square crops while retaining original image bytes for fullscreen viewing.
+
+**Files or migrations:**
+
+- `alembic/versions/20260721_0003_characters.py`
+- `src/world_builder/domain/services/characters.py`
+- `src/world_builder/persistence/repositories/characters.py`
+- `src/world_builder/pages/characters.py`
+- Character domain models and persistence mappings
+- Character service and Streamlit tests
+
+**Verification:**
+
+- `just check` passed Ruff linting, formatting verification, strict mypy, and all 51 tests after the required environment rebuild.
+- Tests cover atomic creation, primary-artwork invariants, assigned/unassigned isolation, rollback after invalid uploads, gallery additions, primary changes, editing, disabling, re-enabling, database uniqueness, and page rendering.
+- Live browser verification confirmed the Characters navigation entry, creation form, upload field, status filter, and universe/unassigned selection.
+
+**Decisions or deviations:**
+
+- `None`/SQLite `NULL` is the canonical internal representation of the user-facing Unassigned location.
+- Character names are not forced unique because the product requirements do not prohibit characters sharing names.
+- Character movement is reserved for F-06 and cannot occur through the generic profile editor.
+
+**Backlog created:**
+
+- None.
 
 ### 2026-07-21 — F-04: Artwork filesystem service
 

@@ -15,6 +15,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -84,6 +85,29 @@ class Universe(TimestampMixin, Base):
         passive_deletes=True,
     )
     artworks: Mapped[list["Artwork"]] = relationship(back_populates="universe")
+    characters: Mapped[list["Character"]] = relationship(back_populates="universe")
+
+
+class Character(TimestampMixin, Base):
+    """A fictional character assigned to a universe or held unassigned."""
+
+    __tablename__ = "characters"
+    __table_args__ = (Index("ix_characters_universe_id", "universe_id"),)
+
+    id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        primary_key=True,
+        default=new_identifier,
+    )
+    universe_id: Mapped[str | None] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("universes.id", ondelete="RESTRICT"),
+    )
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    universe: Mapped[Universe | None] = relationship(back_populates="characters")
 
 
 class LookupCategory(TimestampMixin, Base):
@@ -164,6 +188,12 @@ class Artwork(TimestampMixin, Base):
         UniqueConstraint("relative_path", name="uq_artworks_relative_path"),
         Index("ix_artworks_universe_id", "universe_id"),
         Index("ix_artworks_owner", "owner_kind", "owner_id"),
+        Index(
+            "uq_artworks_primary_character",
+            "owner_id",
+            unique=True,
+            sqlite_where=text("owner_kind = 'character' AND is_primary = 1"),
+        ),
     )
 
     id: Mapped[str] = mapped_column(

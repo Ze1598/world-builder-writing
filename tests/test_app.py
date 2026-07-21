@@ -90,3 +90,33 @@ def test_universe_page_renders_creation_form_and_management_table(
         "Save universes",
     ]
     get_settings.cache_clear()
+
+
+def test_character_page_renders_creation_and_sidebar_selection(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_directory = _configure_test_data(tmp_path, monkeypatch)
+
+    def character_page() -> None:
+        from world_builder.domain.services.characters import CharacterService
+        from world_builder.pages.characters import render_characters
+        from world_builder.persistence.runtime import get_session_factory
+        from world_builder.settings import get_settings
+        from world_builder.storage.artwork import ArtworkStorage
+
+        settings = get_settings()
+        service = CharacterService(
+            get_session_factory(settings.database_path),
+            ArtworkStorage(settings.artwork_directory),
+        )
+        render_characters(service, None)
+
+    app = AppTest.from_function(character_page, default_timeout=10).run()
+
+    assert not app.exception
+    assert app.title[0].value == "Characters"
+    assert app.expander[0].label == "Create character"
+    assert any("sidebar filter" in info.value.lower() for info in app.info)
+    assert data_directory.exists()
+    get_settings.cache_clear()

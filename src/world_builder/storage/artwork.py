@@ -1,5 +1,6 @@
 """Validated filesystem storage for original artwork images."""
 
+import base64
 import os
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -164,6 +165,14 @@ class ArtworkStorage:
             raise MissingArtworkFileError(
                 f'Managed artwork file "{relative_path}" is missing.'
             ) from error
+
+    def data_uri(self, relative_path: str, mime_type: str) -> str:
+        """Expose original artwork bytes as a browser-safe data URI."""
+        supported_mime_types = {details[0] for details in IMAGE_FORMATS.values()}
+        if mime_type not in supported_mime_types:
+            raise UnsupportedArtworkError("The artwork MIME type is not supported.")
+        payload = base64.b64encode(self.read_bytes(relative_path)).decode("ascii")
+        return f"data:{mime_type};base64,{payload}"
 
     def delete(self, relative_path: str) -> None:
         """Remove one managed file without deleting shared parent directories."""

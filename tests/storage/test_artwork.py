@@ -1,5 +1,6 @@
 """Tests for validated GUID-only artwork storage."""
 
+import base64
 from io import BytesIO
 from pathlib import Path
 
@@ -81,6 +82,25 @@ def test_import_normalizes_windows_filename_and_reads_image(tmp_path: Path) -> N
     assert stored.mime_type == "image/png"
     assert stored.relative_path.endswith(f"/{ARTWORK_ID}.png")
     assert storage.read_bytes(stored.relative_path).startswith(b"\x89PNG")
+
+
+def test_data_uri_preserves_original_image_bytes(tmp_path: Path) -> None:
+    storage = ArtworkStorage(tmp_path / "artwork")
+    source = image_file()
+    original = source.getvalue()
+    stored = storage.import_image(
+        source,
+        original_filename="portrait.png",
+        artwork_id=ARTWORK_ID,
+        owner_kind=ArtworkOwnerKind.CHARACTER,
+        owner_id=CHARACTER_ID,
+        universe_id=None,
+    )
+
+    header, encoded = storage.data_uri(stored.relative_path, stored.mime_type).split(",", 1)
+
+    assert header == "data:image/png;base64"
+    assert base64.b64decode(encoded) == original
 
 
 @pytest.mark.parametrize(

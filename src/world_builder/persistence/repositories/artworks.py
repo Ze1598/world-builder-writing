@@ -1,6 +1,6 @@
 """Persistence operations for artwork metadata."""
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from world_builder.domain.models import ArtworkInput
@@ -19,6 +19,28 @@ class ArtworkRepository:
 
     def list_relative_paths(self) -> list[str]:
         return list(self._session.scalars(select(Artwork.relative_path)))
+
+    def list_for_character(self, character_id: str) -> list[Artwork]:
+        statement = (
+            select(Artwork)
+            .where(
+                Artwork.owner_kind == "character",
+                Artwork.owner_id == character_id,
+            )
+            .order_by(Artwork.is_primary.desc(), Artwork.created_at, Artwork.id)
+        )
+        return list(self._session.scalars(statement))
+
+    def clear_character_primary(self, character_id: str) -> None:
+        self._session.execute(
+            update(Artwork)
+            .where(
+                Artwork.owner_kind == "character",
+                Artwork.owner_id == character_id,
+                Artwork.is_primary.is_(True),
+            )
+            .values(is_primary=False)
+        )
 
     def create(
         self,
