@@ -110,13 +110,14 @@ def test_character_page_renders_creation_and_sidebar_selection(
             get_session_factory(settings.database_path),
             ArtworkStorage(settings.artwork_directory),
         )
-        render_characters(service, None)
+        render_characters(service, None, [])
 
     app = AppTest.from_function(character_page, default_timeout=10).run()
 
     assert not app.exception
     assert app.title[0].value == "Characters"
     assert app.expander[0].label == "Create character"
+    assert app.segmented_control[0].value == "All"
     assert any("sidebar filter" in info.value.lower() for info in app.info)
     assert data_directory.exists()
     get_settings.cache_clear()

@@ -46,3 +46,8 @@ class CharacterRepository:
     def update(self, record: Character, values: CharacterInput) -> None:
         record.name = values.name
         record.summary = values.summary
+
+    @staticmethod
+    def move(record: Character, universe_id: str | None) -> None:
+        """Assign a validated destination inside a dedicated move transaction."""
+        record.universe_id = universe_id

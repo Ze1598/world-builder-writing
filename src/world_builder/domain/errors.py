@@ -13,6 +13,10 @@ class RecordNotFoundError(DomainError):
     """Raised when a requested durable record does not exist."""
 
 
+class CharacterMoveError(DomainError):
+    """Raised when a character cannot safely change location."""
+
+
 class ArtworkStorageError(DomainError):
     """Raised when an artwork file cannot be validated or safely managed."""
 

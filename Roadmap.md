@@ -383,6 +383,7 @@ Each feature below is intended to fit into an isolated implementation chat. A fe
 
 - Assign an unassigned character to a selected universe.
 - Move a disabled character from one universe to another.
+- Move a disabled character from a universe back to Unassigned.
 - Preflight report listing every non-artwork connection that will be removed.
 - Explicit confirmation before detachment.
 - Removal of relationships, memberships, story links, chapter links, milestone links, and artwork associations to universe records.
@@ -392,7 +393,7 @@ Each feature below is intended to fit into an isolated implementation chat. A fe
 
 **Acceptance criteria:**
 
-- Active characters cannot be moved between universes.
+- Moving an active assigned character disables it within the confirmed move operation.
 - No cross-universe association survives a move.
 - All character-owned artwork and primary designation survive.
 - Failure-injection tests demonstrate that the operation does not leave half-moved content.

@@ -2,6 +2,7 @@
 
 import base64
 import os
+import shutil
 from collections.abc import Iterable
 from dataclasses import dataclass
 from io import BytesIO
@@ -173,6 +174,32 @@ class ArtworkStorage:
             raise UnsupportedArtworkError("The artwork MIME type is not supported.")
         payload = base64.b64encode(self.read_bytes(relative_path)).decode("ascii")
         return f"data:{mime_type};base64,{payload}"
+
+    def copy(self, source_relative_path: str, destination_relative_path: str) -> None:
+        """Atomically copy one managed file while retaining the source for rollback."""
+        source = self.absolute_path(source_relative_path)
+        destination = self.absolute_path(destination_relative_path)
+        if not source.is_file():
+            raise MissingArtworkFileError(
+                f'Managed artwork file "{source_relative_path}" is missing.'
+            )
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if destination.exists():
+            raise ArtworkCollisionError("The artwork destination already exists.")
+        temporary = destination.parent / f"{uuid4()}.tmp"
+        try:
+            with source.open("rb") as input_file, temporary.open("xb") as output_file:
+                shutil.copyfileobj(input_file, output_file)
+                output_file.flush()
+                os.fsync(output_file.fileno())
+            try:
+                os.link(temporary, destination)
+            except FileExistsError as error:
+                raise ArtworkCollisionError("The artwork destination already exists.") from error
+            temporary.unlink()
+        except Exception:
+            temporary.unlink(missing_ok=True)
+            raise
 
     def delete(self, relative_path: str) -> None:
         """Remove one managed file without deleting shared parent directories."""

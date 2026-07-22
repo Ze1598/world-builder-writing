@@ -105,3 +105,21 @@ Stop the existing `just run` process, restart it on the same non-default port, a
 **Caveat**
 
 A browser refresh cannot load revised Python code when the server process itself is stale.
+
+### Form widgets cannot dynamically enable their own submit button
+
+**Symptom**
+
+A confirmation checkbox and disabled submit button render inside the same `st.form`, but checking the box does not enable the button.
+
+**Cause**
+
+Streamlit batches form widget changes until form submission. Changing the checkbox does not rerun the script, so the submit button retains the `disabled` value calculated before the checkbox changed.
+
+**Resolution**
+
+Keep the form submit button enabled. On submission, validate the confirmation value and show a user-facing error without executing the operation when confirmation is absent.
+
+**Caveat**
+
+Dynamic enablement can be used when the controlling widget is outside the form, because that widget triggers a rerun.

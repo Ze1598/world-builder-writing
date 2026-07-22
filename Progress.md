@@ -4,12 +4,49 @@ This file is the durable execution log for the project. Update it at the end of 
 
 ## Current status
 
-- **Current roadmap feature:** F-06 — Character assignment and cross-universe movement
+- **Current roadmap feature:** F-07 — Character groups and memberships
 - **Feature status:** Not started
-- **Last completed feature:** F-05 — Character creation, profiles, and unassigned pool
-- **Last updated:** 2026-07-21
+- **Last completed feature:** F-06 — Character assignment and cross-universe movement
+- **Last updated:** 2026-07-22
 
 ## Completed work
+
+### 2026-07-22 — F-06: Character assignment and cross-universe movement
+
+**Status:** Complete
+
+**Implemented:**
+
+- Added assignment from Unassigned to any universe.
+- Added confirmed movement of disabled characters between universes and back to Unassigned.
+- Added automatic disabling of active assigned characters within the confirmed move transaction.
+- Added a preflight report covering relationships, group memberships, story links, chapter links, and milestone links.
+- Added explicit confirmation before a character leaves an existing universe.
+- Moved every character-owned artwork file to its GUID-only destination while preserving metadata and primary designation.
+- Staged destination artwork copies before database changes, removed them on transaction failure, and retained source files until the database commit completed.
+- Added a character-profile location management panel with destination selection and user-facing validation.
+
+**Files or migrations:**
+
+- Character movement models, errors, service, repositories, storage operations, and page UI
+- Character movement and artwork-copy tests
+- No database migration was required because character and artwork universe ownership already existed.
+
+**Verification:**
+
+- `just ready` passed Ruff formatting and linting, strict mypy, and all 57 tests.
+- Tests cover assignment, automatic disabling during a confirmed move, confirmed universe movement, return to Unassigned, artwork preservation, primary designation, database failure rollback, and filesystem failure rollback.
+- Live Streamlit verification confirmed the location panel on port 8913.
+
+**Decisions or deviations:**
+
+- Disabled assigned characters may move back to Unassigned as well as directly to another universe.
+- Preflight connection categories report zero until their corresponding schemas are introduced; those later features must connect their records to the existing detachment contract.
+- A failure removing obsolete source copies after a committed move does not reverse the successful move; the destination remains authoritative and the UI reports the cleanup warning.
+
+**Backlog created:**
+
+- None.
 
 ### 2026-07-21 — F-05: Character creation, profiles, and unassigned pool
 

@@ -70,7 +70,11 @@ def main() -> None:
                 url_path="lookups",
             ),
             st.Page(
-                lambda: render_characters(character_service, selected_universe),
+                lambda: render_characters(
+                    character_service,
+                    selected_universe,
+                    universe_service.list_universes(),
+                ),
                 title="Characters",
                 icon=":material/groups:",
                 url_path="characters",

@@ -42,6 +42,14 @@ class ArtworkRepository:
             .values(is_primary=False)
         )
 
+    @staticmethod
+    def move_character_artwork(
+        record: Artwork, *, universe_id: str | None, relative_path: str
+    ) -> None:
+        """Update one character artwork after its destination file is staged."""
+        record.universe_id = universe_id
+        record.relative_path = relative_path
+
     def create(
         self,
         artwork_id: str,

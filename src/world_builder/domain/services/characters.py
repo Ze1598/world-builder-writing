@@ -1,17 +1,20 @@
 """Character profiles and atomic owned-artwork workflows."""
 
+from pathlib import PurePosixPath
 from typing import BinaryIO
 from uuid import uuid4
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from world_builder.domain.errors import RecordNotFoundError
+from world_builder.domain.errors import CharacterMoveError, RecordNotFoundError
 from world_builder.domain.models import (
     ArtworkDetailsInput,
     ArtworkInput,
     ArtworkView,
     CharacterInput,
+    CharacterMovePreflight,
+    CharacterMoveResult,
     CharacterView,
 )
 from world_builder.persistence.database import database_session
@@ -112,6 +115,87 @@ class CharacterService:
             session.flush()
             return CharacterView.model_validate(record)
 
+    def preflight_move(
+        self, character_id: str, target_universe_id: str | None
+    ) -> CharacterMovePreflight:
+        """Validate a destination and report every connection category affected."""
+        with database_session(self._session_factory) as session:
+            character = self._require_character(CharacterRepository(session), character_id)
+            self._validate_move(session, character, target_universe_id)
+            artworks = ArtworkRepository(session).list_for_character(character_id)
+            self._assert_move_artwork_invariants(session, character_id, artworks)
+            return CharacterMovePreflight(
+                character_id=character.id,
+                source_universe_id=character.universe_id,
+                target_universe_id=target_universe_id,
+                artwork_count=len(artworks),
+                disables_character=character.universe_id is not None and character.is_active,
+            )
+
+    def move_character(
+        self,
+        character_id: str,
+        target_universe_id: str | None,
+        *,
+        confirmed: bool = False,
+    ) -> CharacterMoveResult:
+        """Move a character and its artwork without exposing a half-moved state."""
+        staged_destinations: list[str] = []
+        source_paths: list[str] = []
+        try:
+            with database_session(self._session_factory) as session:
+                character_repository = CharacterRepository(session)
+                artwork_repository = ArtworkRepository(session)
+                character = self._require_character(character_repository, character_id)
+                self._validate_move(session, character, target_universe_id)
+                artworks = artwork_repository.list_for_character(character_id)
+                self._assert_move_artwork_invariants(session, character_id, artworks)
+                if character.universe_id is not None and not confirmed:
+                    raise CharacterMoveError(
+                        "Confirm the preflight report before moving this character."
+                    )
+
+                planned_paths: list[tuple[Artwork, str]] = []
+                for artwork in artworks:
+                    destination = self.storage.relative_path(
+                        artwork_id=artwork.id,
+                        owner_kind=ArtworkOwnerKind.CHARACTER,
+                        owner_id=character_id,
+                        universe_id=target_universe_id,
+                        extension=PurePosixPath(artwork.relative_path).suffix,
+                    ).as_posix()
+                    self.storage.copy(artwork.relative_path, destination)
+                    staged_destinations.append(destination)
+                    source_paths.append(artwork.relative_path)
+                    planned_paths.append((artwork, destination))
+
+                if character.universe_id is not None:
+                    character.is_active = False
+                character_repository.move(character, target_universe_id)
+                for artwork, destination in planned_paths:
+                    artwork_repository.move_character_artwork(
+                        artwork,
+                        universe_id=target_universe_id,
+                        relative_path=destination,
+                    )
+                session.flush()
+                self._assert_exactly_one_primary(session, character_id)
+                moved = CharacterView.model_validate(character)
+        except Exception:
+            for destination in staged_destinations:
+                self.storage.delete(destination)
+            raise
+
+        cleanup_warning: str | None = None
+        try:
+            for source_path in source_paths:
+                self.storage.delete(source_path)
+        except OSError:
+            cleanup_warning = (
+                "The character moved, but one or more old artwork copies could not be removed."
+            )
+        return CharacterMoveResult(character=moved, cleanup_warning=cleanup_warning)
+
     def list_artworks(self, character_id: str) -> list[ArtworkView]:
         with database_session(self._session_factory) as session:
             self._require_character(CharacterRepository(session), character_id)
@@ -189,6 +273,24 @@ class CharacterService:
     def _require_universe(session: Session, universe_id: str | None) -> None:
         if universe_id is not None and UniverseRepository(session).get(universe_id) is None:
             raise RecordNotFoundError("The selected universe no longer exists.")
+
+    def _validate_move(
+        self,
+        session: Session,
+        character: Character,
+        target_universe_id: str | None,
+    ) -> None:
+        self._require_universe(session, target_universe_id)
+        if character.universe_id == target_universe_id:
+            raise CharacterMoveError("Select a different character location.")
+
+    @staticmethod
+    def _assert_move_artwork_invariants(
+        session: Session, character_id: str, artworks: list[Artwork]
+    ) -> None:
+        if not artworks:
+            raise CharacterMoveError("The character has no artwork to move.")
+        CharacterService._assert_exactly_one_primary(session, character_id)
 
     @staticmethod
     def _assert_exactly_one_primary(session: Session, character_id: str) -> None:

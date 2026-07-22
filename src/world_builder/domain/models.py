@@ -192,6 +192,48 @@ class CharacterView(BaseModel):
         return value.astimezone(UTC)
 
 
+class CharacterMovePreflight(BaseModel):
+    """Read-only report of what a character location change will affect."""
+
+    model_config = ConfigDict(frozen=True)
+
+    character_id: str
+    source_universe_id: str | None
+    target_universe_id: str | None
+    artwork_count: int
+    disables_character: bool = False
+    relationship_count: int = 0
+    membership_count: int = 0
+    story_link_count: int = 0
+    chapter_link_count: int = 0
+    milestone_link_count: int = 0
+
+    @property
+    def requires_confirmation(self) -> bool:
+        """Return whether the move leaves an existing universe."""
+        return self.source_universe_id is not None
+
+    @property
+    def detached_connection_count(self) -> int:
+        """Return the number of non-artwork connections to remove."""
+        return (
+            self.relationship_count
+            + self.membership_count
+            + self.story_link_count
+            + self.chapter_link_count
+            + self.milestone_link_count
+        )
+
+
+class CharacterMoveResult(BaseModel):
+    """Completed character move and any non-blocking filesystem cleanup warning."""
+
+    model_config = ConfigDict(frozen=True)
+
+    character: CharacterView
+    cleanup_warning: str | None = None
+
+
 class ArtworkDetailsInput(BaseModel):
     """Validated user-authored metadata for a character artwork upload."""
 

@@ -103,6 +103,29 @@ def test_data_uri_preserves_original_image_bytes(tmp_path: Path) -> None:
     assert base64.b64decode(encoded) == original
 
 
+def test_copy_preserves_source_and_exact_bytes(tmp_path: Path) -> None:
+    storage = ArtworkStorage(tmp_path / "artwork")
+    stored = storage.import_image(
+        image_file(),
+        original_filename="portrait.png",
+        artwork_id=ARTWORK_ID,
+        owner_kind=ArtworkOwnerKind.CHARACTER,
+        owner_id=CHARACTER_ID,
+        universe_id=None,
+    )
+    destination = storage.relative_path(
+        artwork_id=ARTWORK_ID,
+        owner_kind=ArtworkOwnerKind.CHARACTER,
+        owner_id=CHARACTER_ID,
+        universe_id=UNIVERSE_ID,
+        extension=".png",
+    ).as_posix()
+
+    storage.copy(stored.relative_path, destination)
+
+    assert storage.read_bytes(destination) == storage.read_bytes(stored.relative_path)
+
+
 @pytest.mark.parametrize(
     ("payload", "filename"),
     [(BytesIO(b"not an image"), "fake.png"), (image_file(), "portrait.exe")],
