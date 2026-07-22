@@ -408,7 +408,7 @@ Each feature below is intended to fit into an isolated implementation chat. A fe
 
 - Group create, list, edit, and detail screens.
 - Group artwork upload into the universe's flat `groups` folder.
-- Character membership with optional role and Markdown description.
+- Character membership with an optional Markdown description and no role field.
 - Add and remove membership operations.
 - Group profile showing members and artwork.
 - Universe isolation on every membership and artwork operation.

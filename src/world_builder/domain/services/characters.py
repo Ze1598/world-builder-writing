@@ -21,6 +21,7 @@ from world_builder.persistence.database import database_session
 from world_builder.persistence.models import Artwork, ArtworkOwnerKind, Character
 from world_builder.persistence.repositories.artworks import ArtworkRepository
 from world_builder.persistence.repositories.characters import CharacterRepository
+from world_builder.persistence.repositories.memberships import GroupMembershipRepository
 from world_builder.persistence.repositories.universes import UniverseRepository
 from world_builder.storage.artwork import ArtworkStorage, StoredArtworkFile
 
@@ -124,12 +125,14 @@ class CharacterService:
             self._validate_move(session, character, target_universe_id)
             artworks = ArtworkRepository(session).list_for_character(character_id)
             self._assert_move_artwork_invariants(session, character_id, artworks)
+            membership_count = GroupMembershipRepository(session).count_for_character(character_id)
             return CharacterMovePreflight(
                 character_id=character.id,
                 source_universe_id=character.universe_id,
                 target_universe_id=target_universe_id,
                 artwork_count=len(artworks),
                 disables_character=character.universe_id is not None and character.is_active,
+                membership_count=membership_count,
             )
 
     def move_character(
@@ -171,6 +174,7 @@ class CharacterService:
 
                 if character.universe_id is not None:
                     character.is_active = False
+                    GroupMembershipRepository(session).delete_for_character(character_id)
                 character_repository.move(character, target_universe_id)
                 for artwork, destination in planned_paths:
                     artwork_repository.move_character_artwork(

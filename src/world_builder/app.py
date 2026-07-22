@@ -3,10 +3,12 @@
 import streamlit as st
 
 from world_builder.domain.services.characters import CharacterService
+from world_builder.domain.services.groups import CharacterGroupService
 from world_builder.domain.services.lookups import LookupService
 from world_builder.domain.services.universes import UniverseService
 from world_builder.pages.characters import render_characters
 from world_builder.pages.context import render_universe_switcher
+from world_builder.pages.groups import render_groups
 from world_builder.pages.home import render_home
 from world_builder.pages.lookups import render_lookups
 from world_builder.pages.universes import render_universes
@@ -47,6 +49,9 @@ def main() -> None:
     character_service = CharacterService(
         session_factory, ArtworkStorage(settings.artwork_directory)
     )
+    group_service = CharacterGroupService(
+        session_factory, ArtworkStorage(settings.artwork_directory)
+    )
     selected_universe = render_universe_switcher(universe_service)
     navigation = st.navigation(
         [
@@ -78,6 +83,16 @@ def main() -> None:
                 title="Characters",
                 icon=":material/groups:",
                 url_path="characters",
+            ),
+            st.Page(
+                lambda: render_groups(
+                    group_service,
+                    character_service,
+                    selected_universe,
+                ),
+                title="Character groups",
+                icon=":material/group_work:",
+                url_path="groups",
             ),
         ]
     )

@@ -17,6 +17,10 @@ class CharacterMoveError(DomainError):
     """Raised when a character cannot safely change location."""
 
 
+class DuplicateMembershipError(DomainError):
+    """Raised when a character already belongs to a selected group."""
+
+
 class ArtworkStorageError(DomainError):
     """Raised when an artwork file cannot be validated or safely managed."""
 

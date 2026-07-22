@@ -31,6 +31,17 @@ class ArtworkRepository:
         )
         return list(self._session.scalars(statement))
 
+    def list_for_group(self, group_id: str) -> list[Artwork]:
+        statement = (
+            select(Artwork)
+            .where(
+                Artwork.owner_kind == "group",
+                Artwork.owner_id == group_id,
+            )
+            .order_by(Artwork.created_at, Artwork.id)
+        )
+        return list(self._session.scalars(statement))
+
     def clear_character_primary(self, character_id: str) -> None:
         self._session.execute(
             update(Artwork)

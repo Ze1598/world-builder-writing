@@ -86,6 +86,11 @@ class Universe(TimestampMixin, Base):
     )
     artworks: Mapped[list["Artwork"]] = relationship(back_populates="universe")
     characters: Mapped[list["Character"]] = relationship(back_populates="universe")
+    character_groups: Mapped[list["CharacterGroup"]] = relationship(
+        back_populates="universe",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 class Character(TimestampMixin, Base):
@@ -108,6 +113,73 @@ class Character(TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     universe: Mapped[Universe | None] = relationship(back_populates="characters")
+    group_memberships: Mapped[list["GroupMembership"]] = relationship(
+        back_populates="character",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class CharacterGroup(TimestampMixin, Base):
+    """A current collection of characters within one universe."""
+
+    __tablename__ = "character_groups"
+    __table_args__ = (Index("ix_character_groups_universe_id", "universe_id"),)
+
+    id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        primary_key=True,
+        default=new_identifier,
+    )
+    universe_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("universes.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+    universe: Mapped[Universe] = relationship(back_populates="character_groups")
+    memberships: Mapped[list["GroupMembership"]] = relationship(
+        back_populates="group",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class GroupMembership(TimestampMixin, Base):
+    """A character's current membership and optional Markdown context."""
+
+    __tablename__ = "group_memberships"
+    __table_args__ = (
+        UniqueConstraint(
+            "group_id",
+            "character_id",
+            name="uq_group_membership_group_character",
+        ),
+        Index("ix_group_memberships_group_id", "group_id"),
+        Index("ix_group_memberships_character_id", "character_id"),
+    )
+
+    id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        primary_key=True,
+        default=new_identifier,
+    )
+    group_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("character_groups.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    character_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("characters.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+    group: Mapped[CharacterGroup] = relationship(back_populates="memberships")
+    character: Mapped[Character] = relationship(back_populates="group_memberships")
 
 
 class LookupCategory(TimestampMixin, Base):

@@ -234,6 +234,61 @@ class CharacterMoveResult(BaseModel):
     cleanup_warning: str | None = None
 
 
+class CharacterGroupInput(BaseModel):
+    """Validated editable fields for a universe-owned character group."""
+
+    model_config = ConfigDict(frozen=True)
+
+    universe_id: str
+    name: str = Field(min_length=1, max_length=200)
+    description: str = ""
+
+    @field_validator("universe_id")
+    @classmethod
+    def validate_group_universe(cls, value: str) -> str:
+        from uuid import UUID
+
+        return str(UUID(value))
+
+    @field_validator("name", "description", mode="before")
+    @classmethod
+    def strip_group_text(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+
+class CharacterGroupView(BaseModel):
+    """Read-only character group profile fields."""
+
+    model_config = ConfigDict(from_attributes=True, frozen=True)
+
+    id: str
+    universe_id: str
+    name: str
+    description: str
+    created_at: datetime
+    updated_at: datetime
+
+    @field_validator("created_at", "updated_at", mode="after")
+    @classmethod
+    def normalize_group_utc(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)
+
+
+class GroupMembershipView(BaseModel):
+    """Read-only membership enriched with its character display fields."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    group_id: str
+    character_id: str
+    character_name: str
+    character_is_active: bool
+    description: str
+
+
 class ArtworkDetailsInput(BaseModel):
     """Validated user-authored metadata for a character artwork upload."""
 

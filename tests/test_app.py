@@ -121,3 +121,35 @@ def test_character_page_renders_creation_and_sidebar_selection(
     assert any("sidebar filter" in info.value.lower() for info in app.info)
     assert data_directory.exists()
     get_settings.cache_clear()
+
+
+def test_group_page_requires_a_selected_universe(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_directory = _configure_test_data(tmp_path, monkeypatch)
+
+    def group_page() -> None:
+        from world_builder.domain.services.characters import CharacterService
+        from world_builder.domain.services.groups import CharacterGroupService
+        from world_builder.pages.groups import render_groups
+        from world_builder.persistence.runtime import get_session_factory
+        from world_builder.settings import get_settings
+        from world_builder.storage.artwork import ArtworkStorage
+
+        settings = get_settings()
+        session_factory = get_session_factory(settings.database_path)
+        storage = ArtworkStorage(settings.artwork_directory)
+        render_groups(
+            CharacterGroupService(session_factory, storage),
+            CharacterService(session_factory, storage),
+            None,
+        )
+
+    app = AppTest.from_function(group_page, default_timeout=10).run()
+
+    assert not app.exception
+    assert app.title[0].value == "Character groups"
+    assert any("select a universe" in warning.value.lower() for warning in app.warning)
+    assert data_directory.exists()
+    get_settings.cache_clear()

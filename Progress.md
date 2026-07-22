@@ -4,12 +4,50 @@ This file is the durable execution log for the project. Update it at the end of 
 
 ## Current status
 
-- **Current roadmap feature:** F-07 — Character groups and memberships
+- **Current roadmap feature:** F-08 — Sequenced chapters and universe timeline
 - **Feature status:** Not started
-- **Last completed feature:** F-06 — Character assignment and cross-universe movement
+- **Last completed feature:** F-07 — Character groups and memberships
 - **Last updated:** 2026-07-22
 
 ## Completed work
+
+### 2026-07-22 — F-07: Character groups and memberships
+
+**Status:** Complete
+
+**Implemented:**
+
+- Added universe-owned character groups with Markdown descriptions.
+- Added optional initial artwork during group creation and later group artwork uploads.
+- Stored group-owned artwork flat under each universe's GUID-only `groups/` folder while retaining the owning group GUID in SQLite.
+- Added current character memberships with optional Markdown descriptions and no role field.
+- Added membership creation, description editing, and removal without changing character, group, or artwork records.
+- Enforced that memberships can only reference characters assigned to the same universe as the group.
+- Added group profiles with members and artwork galleries, group editing, page-specific sidebar selection, and a new navigation entry.
+- Connected group memberships to character-move preflight counts and confirmed detachment.
+
+**Files or migrations:**
+
+- `alembic/versions/20260722_0004_character_groups.py`
+- Group and membership domain models, persistence mappings, repositories, service, page, navigation, and tests
+- Character movement service integration for membership preflight and removal
+
+**Verification:**
+
+- `just check` passed Ruff linting, formatting verification, strict mypy, and all 64 tests after rebuilding the corrupted uv environment.
+- Tests cover optional group artwork, flat storage paths, membership add/edit/remove, unassigned and foreign-universe rejection, and membership detachment during character movement.
+- The local database migrated to `20260722_0004`; the migration created a timestamped schema backup in the ignored data directory.
+- Streamlit started successfully on port 8913 with the migrated schema.
+
+**Decisions or deviations:**
+
+- Initial group artwork is optional.
+- Memberships contain only an optional Markdown description; no membership role field is stored.
+- Groups do not move between universes and have no delete action in this feature.
+
+**Backlog created:**
+
+- None.
 
 ### 2026-07-22 — F-06: Character assignment and cross-universe movement
 
