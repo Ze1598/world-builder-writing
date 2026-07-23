@@ -2,10 +2,12 @@
 
 import streamlit as st
 
+from world_builder.domain.services.chapters import ChapterService
 from world_builder.domain.services.characters import CharacterService
 from world_builder.domain.services.groups import CharacterGroupService
 from world_builder.domain.services.lookups import LookupService
 from world_builder.domain.services.universes import UniverseService
+from world_builder.pages.chapters import render_chapters
 from world_builder.pages.characters import render_characters
 from world_builder.pages.context import render_universe_switcher
 from world_builder.pages.groups import render_groups
@@ -45,6 +47,7 @@ def main() -> None:
 
     session_factory = get_session_factory(settings.database_path)
     universe_service = UniverseService(session_factory)
+    chapter_service = ChapterService(session_factory)
     lookup_service = LookupService(session_factory)
     character_service = CharacterService(
         session_factory, ArtworkStorage(settings.artwork_directory)
@@ -93,6 +96,17 @@ def main() -> None:
                 title="Character groups",
                 icon=":material/group_work:",
                 url_path="groups",
+            ),
+            st.Page(
+                lambda: render_chapters(
+                    chapter_service,
+                    character_service,
+                    group_service,
+                    selected_universe,
+                ),
+                title="Chapters",
+                icon=":material/view_timeline:",
+                url_path="chapters",
             ),
         ]
     )

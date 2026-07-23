@@ -91,6 +91,9 @@ class Universe(TimestampMixin, Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    chapters: Mapped[list["Chapter"]] = relationship(
+        back_populates="universe", cascade="all, delete-orphan", passive_deletes=True
+    )
 
 
 class Character(TimestampMixin, Base):
@@ -180,6 +183,72 @@ class GroupMembership(TimestampMixin, Base):
 
     group: Mapped[CharacterGroup] = relationship(back_populates="memberships")
     character: Mapped[Character] = relationship(back_populates="group_memberships")
+
+
+class Chapter(TimestampMixin, Base):
+    """An ordered conceptual grouping of events within one universe."""
+
+    __tablename__ = "chapters"
+    __table_args__ = (
+        Index("ix_chapters_universe_id", "universe_id"),
+        Index("ix_chapters_universe_sequence", "universe_id", "sequence_position"),
+    )
+
+    id: Mapped[str] = mapped_column(String(IDENTIFIER_LENGTH), primary_key=True)
+    universe_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("universes.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    sequence_position: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    universe: Mapped[Universe] = relationship(back_populates="chapters")
+    character_links: Mapped[list["ChapterCharacter"]] = relationship(
+        back_populates="chapter", cascade="all, delete-orphan", passive_deletes=True
+    )
+    group_links: Mapped[list["ChapterGroup"]] = relationship(
+        back_populates="chapter", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+
+class ChapterCharacter(Base):
+    """Universe-validated chapter-to-character link."""
+
+    __tablename__ = "chapter_characters"
+
+    chapter_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("chapters.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    character_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("characters.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    chapter: Mapped[Chapter] = relationship(back_populates="character_links")
+    character: Mapped[Character] = relationship()
+
+
+class ChapterGroup(Base):
+    """Universe-validated chapter-to-group link."""
+
+    __tablename__ = "chapter_groups"
+
+    chapter_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("chapters.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    group_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("character_groups.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    chapter: Mapped[Chapter] = relationship(back_populates="group_links")
+    group: Mapped[CharacterGroup] = relationship()
 
 
 class LookupCategory(TimestampMixin, Base):

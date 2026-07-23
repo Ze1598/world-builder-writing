@@ -4,12 +4,46 @@ This file is the durable execution log for the project. Update it at the end of 
 
 ## Current status
 
-- **Current roadmap feature:** F-08 — Sequenced chapters and universe timeline
+- **Current roadmap feature:** F-09 — Story CRUD and Markdown content
 - **Feature status:** Not started
-- **Last completed feature:** F-07 — Character groups and memberships
-- **Last updated:** 2026-07-22
+- **Last completed feature:** F-08 — Sequenced chapters and universe timeline
+- **Last updated:** 2026-07-23
 
 ## Completed work
+
+### 2026-07-23 — F-08: Sequenced chapters and universe timeline
+
+**Status:** Complete
+
+**Implemented:**
+
+- Added universe-owned chapters with titles, Markdown descriptions, sequence positions, character links, and group links.
+- Added deterministic earlier/later movement and explicit concurrent positioning.
+- Made a concurrent chapter leave its cohort independently when moved earlier or later.
+- Added contiguous position normalization after chronology changes and chapter removal.
+- Added a chapter page with creation, sidebar selection, timeline grouping, detail editing, sequence controls, and confirmed removal.
+- Added chapter-link reporting and detachment to the existing character movement workflow.
+
+**Files or migrations:**
+
+- `alembic/versions/20260723_0005_chapters.py`
+- Chapter domain models, persistence mappings, repository, service, page, navigation, and tests
+- Character movement service integration for chapter-link preflight and removal
+
+**Verification:**
+
+- `just ready` passed Ruff formatting and linting, strict mypy, and all 68 tests.
+- Tests cover append order, concurrent grouping, independent cohort movement, universe isolation, removal, character-move detachment, migrations, and Streamlit page rendering.
+
+**Decisions or deviations:**
+
+- Chapters are conceptual timeline boxes; stories remain the primary literary content.
+- Moving one concurrent chapter earlier or later gives that chapter its own adjacent position and leaves the other concurrent chapters together.
+- Chapter removal currently deletes its character and group links. F-09 will block removal when stories reference the chapter.
+
+**Backlog created:**
+
+- None.
 
 ### 2026-07-22 — F-07: Character groups and memberships
 

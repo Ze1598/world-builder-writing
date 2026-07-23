@@ -437,8 +437,11 @@ Each feature below is intended to fit into an isolated implementation chat. A fe
 
 - Multiple chapters can share a sequence position.
 - Reordering produces deterministic results.
+- Moving one chapter out of a concurrent position changes only that chapter's timing.
 - Character and group links remain universe-scoped.
 - Timeline order is independent of creation time.
+- Before stories exist, removing a chapter also removes its character and group links.
+- Once stories exist, chapter removal is blocked while any story references it.
 
 ### F-09 — Story CRUD and Markdown content
 

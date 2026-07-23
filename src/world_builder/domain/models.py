@@ -289,6 +289,46 @@ class GroupMembershipView(BaseModel):
     description: str
 
 
+class ChapterInput(BaseModel):
+    """Validated editable chapter content and universe-scoped links."""
+
+    model_config = ConfigDict(frozen=True)
+
+    universe_id: str
+    title: str = Field(min_length=1, max_length=200)
+    description: str = ""
+    character_ids: tuple[str, ...] = ()
+    group_ids: tuple[str, ...] = ()
+
+    @field_validator("universe_id")
+    @classmethod
+    def validate_chapter_universe(cls, value: str) -> str:
+        from uuid import UUID
+
+        return str(UUID(value))
+
+    @field_validator("title", "description", mode="before")
+    @classmethod
+    def strip_chapter_text(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+
+class ChapterView(BaseModel):
+    """Read-only chapter profile with linked entity display values."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    universe_id: str
+    title: str
+    description: str
+    sequence_position: int
+    character_ids: tuple[str, ...]
+    character_names: tuple[str, ...]
+    group_ids: tuple[str, ...]
+    group_names: tuple[str, ...]
+
+
 class ArtworkDetailsInput(BaseModel):
     """Validated user-authored metadata for a character artwork upload."""
 

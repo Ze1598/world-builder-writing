@@ -153,3 +153,41 @@ def test_group_page_requires_a_selected_universe(
     assert any("select a universe" in warning.value.lower() for warning in app.warning)
     assert data_directory.exists()
     get_settings.cache_clear()
+
+
+def test_chapter_page_renders_timeline_management(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_directory = _configure_test_data(tmp_path, monkeypatch)
+    session_factory = get_session_factory(data_directory / "world_builder.sqlite")
+    UniverseService(session_factory).create_universe(UniverseInput(name="Test"))
+
+    def chapter_page() -> None:
+        from world_builder.domain.services.chapters import ChapterService
+        from world_builder.domain.services.characters import CharacterService
+        from world_builder.domain.services.groups import CharacterGroupService
+        from world_builder.domain.services.universes import UniverseService
+        from world_builder.pages.chapters import render_chapters
+        from world_builder.persistence.runtime import get_session_factory
+        from world_builder.settings import get_settings
+        from world_builder.storage.artwork import ArtworkStorage
+
+        settings = get_settings()
+        test_session_factory = get_session_factory(settings.database_path)
+        storage = ArtworkStorage(settings.artwork_directory)
+        selected = UniverseService(test_session_factory).list_universes()[0]
+        render_chapters(
+            ChapterService(test_session_factory),
+            CharacterService(test_session_factory, storage),
+            CharacterGroupService(test_session_factory, storage),
+            selected,
+        )
+
+    app = AppTest.from_function(chapter_page, default_timeout=10).run()
+
+    assert not app.exception
+    assert app.title[0].value == "Chapters"
+    assert app.expander[0].label == "Create chapter"
+    assert any("Create a chapter" in info.value for info in app.info)
+    get_settings.cache_clear()
