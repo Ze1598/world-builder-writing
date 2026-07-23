@@ -5,55 +5,23 @@ from typing import Any
 import streamlit as st
 from pydantic import ValidationError
 
-from world_builder.domain.errors import DomainError, MissingArtworkFileError
+from world_builder.domain.errors import DomainError
 from world_builder.domain.models import (
     ArtworkDetailsInput,
-    ArtworkView,
     CharacterInput,
     CharacterView,
     UniverseView,
 )
 from world_builder.domain.services.characters import CharacterService
+from world_builder.domain.services.stories import StoryService
+from world_builder.pages.artwork_previews import (
+    render_gallery_preview,
+    render_preview_styles,
+    render_profile_preview,
+)
 from world_builder.pages.notifications import queue_toast, render_queued_toast, show_toast
 
 SELECTED_CHARACTER_KEY = "selected_character_id"
-
-
-def _render_preview_styles() -> None:
-    st.html(
-        """
-        <style>
-        .st-key-character-profile-image
-        [data-testid="stFullScreenFrame"]:not(:has(button[aria-label="Close fullscreen"]))
-        [data-testid="stImage"] {
-            width: 320px !important;
-            height: 320px !important;
-            max-width: 100%;
-            overflow: hidden !important;
-            border-radius: 0.5rem;
-        }
-        [class*="st-key-character-gallery-image-"]
-        [data-testid="stFullScreenFrame"]:not(:has(button[aria-label="Close fullscreen"]))
-        [data-testid="stImage"] {
-            width: 240px !important;
-            height: 240px !important;
-            max-width: 100%;
-            overflow: hidden !important;
-            border-radius: 0.5rem;
-        }
-        .st-key-character-profile-image
-        [data-testid="stFullScreenFrame"]:not(:has(button[aria-label="Close fullscreen"]))
-        [data-testid="stImage"] img,
-        [class*="st-key-character-gallery-image-"]
-        [data-testid="stFullScreenFrame"]:not(:has(button[aria-label="Close fullscreen"]))
-        [data-testid="stImage"] img {
-            width: 100% !important;
-            height: 100% !important;
-            object-fit: cover !important;
-        }
-        </style>
-        """
-    )
 
 
 def _character_values(name: str, summary: str, universe_id: str | None) -> CharacterInput | None:
@@ -199,17 +167,6 @@ def _select_character_sidebar(
     )
     st.session_state[SELECTED_CHARACTER_KEY] = selected_id
     return visible_by_id[selected_id]
-
-
-def _show_artwork(service: CharacterService, artwork: ArtworkView) -> None:
-    try:
-        image_url = service.storage.data_uri(artwork.relative_path, artwork.mime_type)
-        st.image(
-            image_url,
-            width="stretch",
-        )
-    except MissingArtworkFileError as error:
-        st.warning(str(error))
 
 
 def _render_edit_profile(service: CharacterService, character: CharacterView) -> None:
@@ -359,14 +316,14 @@ def _render_profile(
     service: CharacterService,
     character: CharacterView,
     universes: list[UniverseView],
+    story_service: StoryService | None,
 ) -> None:
     artworks = service.list_artworks(character.id)
     primary = next((artwork for artwork in artworks if artwork.is_primary), None)
     profile_image, profile_text = st.columns([1, 2])
     with profile_image:
         if primary is not None:
-            with st.container(key="character-profile-image"):
-                _show_artwork(service, primary)
+            render_profile_preview(service.storage, primary)
     with profile_text:
         st.subheader(character.name)
         st.caption(
@@ -374,6 +331,14 @@ def _render_profile(
             + (" · Unassigned" if character.universe_id is None else "")
         )
         st.markdown(character.summary)
+        if story_service is not None:
+            stories = story_service.list_for_character(character.id)
+            with st.expander(f"Linked stories ({len(stories)})"):
+                if stories:
+                    for story in stories:
+                        st.markdown(f"- **{story.title}** · {story.chapter_title}")
+                else:
+                    st.caption("No stories link to this character.")
 
     _render_edit_profile(service, character)
     _render_location_change(service, character, universes)
@@ -383,8 +348,7 @@ def _render_profile(
     columns = st.columns(3)
     for index, artwork in enumerate(artworks):
         with columns[index % 3], st.container(border=True):
-            with st.container(key=f"character-gallery-image-{artwork.id}"):
-                _show_artwork(service, artwork)
+            render_gallery_preview(service.storage, artwork)
             st.markdown(f"**{artwork.title}**")
             st.markdown(artwork.description)
             if artwork.is_primary:
@@ -404,9 +368,10 @@ def render_characters(
     service: CharacterService,
     selected_universe: UniverseView | None,
     universes: list[UniverseView],
+    story_service: StoryService | None = None,
 ) -> None:
     """Render character creation and the sidebar-selected profile."""
-    _render_preview_styles()
+    render_preview_styles()
     st.title("Characters")
     render_queued_toast()
     _render_create_form(service, selected_universe)
@@ -415,4 +380,4 @@ def render_characters(
     if selected is None:
         st.info("No characters match the current sidebar filter.")
         return
-    _render_profile(service, selected, universes)
+    _render_profile(service, selected, universes, story_service)

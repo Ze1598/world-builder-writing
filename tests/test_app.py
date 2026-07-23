@@ -5,7 +5,8 @@ from pathlib import Path
 import pytest
 from streamlit.testing.v1 import AppTest
 
-from world_builder.domain.models import UniverseInput
+from world_builder.domain.models import ChapterInput, UniverseInput
+from world_builder.domain.services.chapters import ChapterService
 from world_builder.domain.services.universes import UniverseService
 from world_builder.persistence.migrations import migrate_database
 from world_builder.persistence.runtime import get_session_factory
@@ -89,6 +90,40 @@ def test_universe_page_renders_creation_form_and_management_table(
         "Create universe",
         "Save universes",
     ]
+    get_settings.cache_clear()
+
+
+def test_universe_table_edit_persists_widget_changes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_directory = _configure_test_data(tmp_path, monkeypatch)
+    session_factory = get_session_factory(data_directory / "world_builder.sqlite")
+    universe = UniverseService(session_factory).create_universe(UniverseInput(name="Before"))
+
+    def universe_page() -> None:
+        from world_builder.domain.services.universes import UniverseService
+        from world_builder.pages.universes import render_universes
+        from world_builder.persistence.runtime import get_session_factory
+        from world_builder.settings import get_settings
+
+        settings = get_settings()
+        test_session_factory = get_session_factory(settings.database_path)
+        selected = UniverseService(test_session_factory).list_universes()[0]
+        render_universes(UniverseService(test_session_factory), selected)
+
+    app = AppTest.from_function(universe_page, default_timeout=10).run()
+    app.session_state["universe-editor"] = {
+        "edited_rows": {0: {"name": "After"}},
+        "added_rows": [],
+        "deleted_rows": [],
+    }
+    app.button[1].click().run()
+
+    persisted = UniverseService(session_factory).get_universe(universe.id)
+    assert not app.exception
+    assert persisted is not None
+    assert persisted.name == "After"
     get_settings.cache_clear()
 
 
@@ -190,4 +225,47 @@ def test_chapter_page_renders_timeline_management(
     assert app.title[0].value == "Chapters"
     assert app.expander[0].label == "Create chapter"
     assert any("Create a chapter" in info.value for info in app.info)
+    get_settings.cache_clear()
+
+
+def test_story_page_renders_placeholder_creation_form(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_directory = _configure_test_data(tmp_path, monkeypatch)
+    session_factory = get_session_factory(data_directory / "world_builder.sqlite")
+    universe = UniverseService(session_factory).create_universe(UniverseInput(name="Test"))
+    ChapterService(session_factory).create_chapter(
+        ChapterInput(universe_id=universe.id, title="Beginnings")
+    )
+
+    def story_page() -> None:
+        from world_builder.domain.services.chapters import ChapterService
+        from world_builder.domain.services.characters import CharacterService
+        from world_builder.domain.services.groups import CharacterGroupService
+        from world_builder.domain.services.stories import StoryService
+        from world_builder.domain.services.universes import UniverseService
+        from world_builder.pages.stories import render_stories
+        from world_builder.persistence.runtime import get_session_factory
+        from world_builder.settings import get_settings
+        from world_builder.storage.artwork import ArtworkStorage
+
+        settings = get_settings()
+        test_session_factory = get_session_factory(settings.database_path)
+        storage = ArtworkStorage(settings.artwork_directory)
+        selected = UniverseService(test_session_factory).list_universes()[0]
+        render_stories(
+            StoryService(test_session_factory, storage),
+            ChapterService(test_session_factory),
+            CharacterService(test_session_factory, storage),
+            CharacterGroupService(test_session_factory, storage),
+            selected,
+        )
+
+    app = AppTest.from_function(story_page, default_timeout=10).run()
+
+    assert not app.exception
+    assert app.title[0].value == "Stories"
+    assert app.expander[0].label == "Create story"
+    assert any(item.label == "Story Markdown" for item in app.text_area)
     get_settings.cache_clear()

@@ -14,6 +14,7 @@ from world_builder.domain.models import (
 from world_builder.domain.services.chapters import ChapterService
 from world_builder.domain.services.characters import CharacterService
 from world_builder.domain.services.groups import CharacterGroupService
+from world_builder.domain.services.stories import StoryService
 from world_builder.pages.notifications import queue_toast, render_queued_toast, show_toast
 
 SELECTED_CHAPTER_KEY = "selected_chapter_id"
@@ -220,7 +221,7 @@ def _render_remove(service: ChapterService, chapter: ChapterView) -> None:
         ):
             try:
                 service.remove_chapter(chapter.id)
-            except DomainError as error:
+            except (DomainError, ValueError) as error:
                 show_toast(str(error), kind="error")
             else:
                 st.session_state.pop(SELECTED_CHAPTER_KEY, None)
@@ -233,6 +234,7 @@ def render_chapters(
     character_service: CharacterService,
     group_service: CharacterGroupService,
     selected_universe: UniverseView | None,
+    story_service: StoryService | None = None,
 ) -> None:
     """Render universe-scoped chapter management and relative chronology."""
     st.title("Chapters")
@@ -260,6 +262,14 @@ def render_chapters(
         st.markdown(f"**Characters:** {', '.join(selected.character_names)}")
     if selected.group_names:
         st.markdown(f"**Groups:** {', '.join(selected.group_names)}")
+    if story_service is not None:
+        stories = story_service.list_for_chapter(selected.id)
+        with st.expander(f"Stories ({len(stories)})"):
+            if stories:
+                for story in stories:
+                    st.markdown(f"- **{story.title}**")
+            else:
+                st.caption("No stories belong to this chapter.")
     _render_edit(chapter_service, selected, characters, groups)
     _render_sequence_controls(chapter_service, selected, chapters)
     _render_remove(chapter_service, selected)

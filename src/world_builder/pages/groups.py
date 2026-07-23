@@ -5,10 +5,9 @@ from typing import Any
 import streamlit as st
 from pydantic import ValidationError
 
-from world_builder.domain.errors import DomainError, MissingArtworkFileError
+from world_builder.domain.errors import DomainError
 from world_builder.domain.models import (
     ArtworkDetailsInput,
-    ArtworkView,
     CharacterGroupInput,
     CharacterGroupView,
     CharacterView,
@@ -16,6 +15,11 @@ from world_builder.domain.models import (
 )
 from world_builder.domain.services.characters import CharacterService
 from world_builder.domain.services.groups import CharacterGroupService
+from world_builder.domain.services.stories import StoryService
+from world_builder.pages.artwork_previews import (
+    render_gallery_preview,
+    render_preview_styles,
+)
 from world_builder.pages.notifications import queue_toast, render_queued_toast, show_toast
 
 SELECTED_GROUP_KEY = "selected_group_id"
@@ -136,14 +140,6 @@ def _select_group_sidebar(
     )
     st.session_state[SELECTED_GROUP_KEY] = selected_id
     return groups_by_id[selected_id]
-
-
-def _show_artwork(service: CharacterGroupService, artwork: ArtworkView) -> None:
-    try:
-        image_url = service.storage.data_uri(artwork.relative_path, artwork.mime_type)
-        st.image(image_url, width=240)
-    except MissingArtworkFileError as error:
-        st.warning(str(error))
 
 
 def _render_edit_group(service: CharacterGroupService, group: CharacterGroupView) -> None:
@@ -273,12 +269,21 @@ def _render_profile(
     group_service: CharacterGroupService,
     character_service: CharacterService,
     group: CharacterGroupView,
+    story_service: StoryService | None,
 ) -> None:
     st.subheader(group.name)
     if group.description:
         st.markdown(group.description)
     else:
         st.caption("No group description.")
+    if story_service is not None:
+        stories = story_service.list_for_group(group.id)
+        with st.expander(f"Linked stories ({len(stories)})"):
+            if stories:
+                for story in stories:
+                    st.markdown(f"- **{story.title}** · {story.chapter_title}")
+            else:
+                st.caption("No stories link to this group.")
     _render_edit_group(group_service, group)
     st.divider()
     _render_memberships(group_service, character_service, group)
@@ -292,7 +297,7 @@ def _render_profile(
     columns = st.columns(3)
     for index, artwork in enumerate(artworks):
         with columns[index % 3], st.container(border=True):
-            _show_artwork(group_service, artwork)
+            render_gallery_preview(group_service.storage, artwork)
             st.markdown(f"**{artwork.title}**")
             st.markdown(artwork.description)
 
@@ -301,8 +306,10 @@ def render_groups(
     group_service: CharacterGroupService,
     character_service: CharacterService,
     selected_universe: UniverseView | None,
+    story_service: StoryService | None = None,
 ) -> None:
     """Render universe-scoped group management and the selected profile."""
+    render_preview_styles()
     st.title("Character groups")
     render_queued_toast()
     if selected_universe is None:
@@ -314,4 +321,4 @@ def render_groups(
     if selected is None:
         st.info("Create a character group in this universe to begin.")
         return
-    _render_profile(group_service, character_service, selected)
+    _render_profile(group_service, character_service, selected, story_service)

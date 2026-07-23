@@ -452,7 +452,8 @@ Each feature below is intended to fit into an isolated implementation chat. A fe
 **Deliverables:**
 
 - Story schema and association tables.
-- Story creation/edit form with title, large Markdown field, required chapter, character multi-select, group multi-select, and existing-artwork selector.
+- Story creation/edit form with required title, optional large Markdown field, required chapter, character multi-select, group multi-select, and existing-artwork selector.
+- Optional upload of new globally unassigned artwork while creating or editing a story.
 - Optional `.md` upload that populates the form.
 - Markdown preview and safe rendering.
 - Story detail page and Markdown download.
@@ -463,6 +464,7 @@ Each feature below is intended to fit into an isolated implementation chat. A fe
 **Acceptance criteria:**
 
 - Editing overwrites the current story without creating revisions.
+- A title-only story is a valid placeholder.
 - Long Markdown content round-trips without truncation.
 - A story belongs to exactly one chapter.
 - Selected entities and artwork must belong to the story's universe.

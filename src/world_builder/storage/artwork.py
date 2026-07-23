@@ -58,17 +58,23 @@ class ArtworkStorage:
         self,
         *,
         artwork_id: str,
-        owner_kind: ArtworkOwnerKind,
-        owner_id: str,
+        owner_kind: ArtworkOwnerKind | None,
+        owner_id: str | None,
         universe_id: str | None,
         extension: str,
     ) -> PurePosixPath:
         """Build the canonical relative path for an owned artwork file."""
         artwork = canonical_identifier(artwork_id)
-        owner = canonical_identifier(owner_id)
         if extension not in {details[1] for details in IMAGE_FORMATS.values()}:
             raise UnsupportedArtworkError("The artwork extension is not supported.")
         filename = f"{artwork}{extension}"
+        if owner_kind is None and owner_id is None and universe_id is None:
+            return PurePosixPath("unassigned", "artwork", filename)
+        if owner_kind is None or owner_id is None:
+            raise ArtworkStorageError(
+                "Artwork owner type and identifier must be supplied together."
+            )
+        owner = canonical_identifier(owner_id)
         if owner_kind is ArtworkOwnerKind.CHARACTER and universe_id is None:
             return PurePosixPath("unassigned", "characters", owner, filename)
         if universe_id is None:
@@ -84,8 +90,8 @@ class ArtworkStorage:
         *,
         original_filename: str,
         artwork_id: str,
-        owner_kind: ArtworkOwnerKind,
-        owner_id: str,
+        owner_kind: ArtworkOwnerKind | None,
+        owner_id: str | None,
         universe_id: str | None,
     ) -> StoredArtworkFile:
         """Validate image content and atomically copy it into managed storage."""

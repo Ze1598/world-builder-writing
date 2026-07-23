@@ -23,6 +23,7 @@ from world_builder.persistence.repositories.artworks import ArtworkRepository
 from world_builder.persistence.repositories.chapters import ChapterRepository
 from world_builder.persistence.repositories.characters import CharacterRepository
 from world_builder.persistence.repositories.memberships import GroupMembershipRepository
+from world_builder.persistence.repositories.stories import StoryRepository
 from world_builder.persistence.repositories.universes import UniverseRepository
 from world_builder.storage.artwork import ArtworkStorage, StoredArtworkFile
 
@@ -128,6 +129,7 @@ class CharacterService:
             self._assert_move_artwork_invariants(session, character_id, artworks)
             membership_count = GroupMembershipRepository(session).count_for_character(character_id)
             chapter_link_count = ChapterRepository(session).count_links_for_character(character_id)
+            story_link_count = StoryRepository(session).count_links_for_character(character_id)
             return CharacterMovePreflight(
                 character_id=character.id,
                 source_universe_id=character.universe_id,
@@ -135,6 +137,7 @@ class CharacterService:
                 artwork_count=len(artworks),
                 disables_character=character.universe_id is not None and character.is_active,
                 membership_count=membership_count,
+                story_link_count=story_link_count,
                 chapter_link_count=chapter_link_count,
             )
 
@@ -179,6 +182,7 @@ class CharacterService:
                     character.is_active = False
                     GroupMembershipRepository(session).delete_for_character(character_id)
                     ChapterRepository(session).delete_links_for_character(character_id)
+                    StoryRepository(session).delete_links_for_character(character_id)
                 character_repository.move(character, target_universe_id)
                 for artwork, destination in planned_paths:
                     artwork_repository.move_character_artwork(

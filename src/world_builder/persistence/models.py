@@ -94,6 +94,9 @@ class Universe(TimestampMixin, Base):
     chapters: Mapped[list["Chapter"]] = relationship(
         back_populates="universe", cascade="all, delete-orphan", passive_deletes=True
     )
+    stories: Mapped[list["Story"]] = relationship(
+        back_populates="universe", cascade="all, delete-orphan", passive_deletes=True
+    )
 
 
 class Character(TimestampMixin, Base):
@@ -121,6 +124,9 @@ class Character(TimestampMixin, Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    story_links: Mapped[list["StoryCharacter"]] = relationship(
+        back_populates="character", cascade="all, delete-orphan", passive_deletes=True
+    )
 
 
 class CharacterGroup(TimestampMixin, Base):
@@ -147,6 +153,9 @@ class CharacterGroup(TimestampMixin, Base):
         back_populates="group",
         cascade="all, delete-orphan",
         passive_deletes=True,
+    )
+    story_links: Mapped[list["StoryGroup"]] = relationship(
+        back_populates="group", cascade="all, delete-orphan", passive_deletes=True
     )
 
 
@@ -211,6 +220,7 @@ class Chapter(TimestampMixin, Base):
     group_links: Mapped[list["ChapterGroup"]] = relationship(
         back_populates="chapter", cascade="all, delete-orphan", passive_deletes=True
     )
+    stories: Mapped[list["Story"]] = relationship(back_populates="chapter")
 
 
 class ChapterCharacter(Base):
@@ -249,6 +259,93 @@ class ChapterGroup(Base):
     )
     chapter: Mapped[Chapter] = relationship(back_populates="group_links")
     group: Mapped[CharacterGroup] = relationship()
+
+
+class Story(TimestampMixin, Base):
+    """A Markdown literary entry assigned to exactly one chapter."""
+
+    __tablename__ = "stories"
+    __table_args__ = (
+        Index("ix_stories_universe_id", "universe_id"),
+        Index("ix_stories_chapter_id", "chapter_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(IDENTIFIER_LENGTH), primary_key=True)
+    universe_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("universes.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    chapter_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("chapters.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+    universe: Mapped[Universe] = relationship(back_populates="stories")
+    chapter: Mapped[Chapter] = relationship(back_populates="stories")
+    character_links: Mapped[list["StoryCharacter"]] = relationship(
+        back_populates="story", cascade="all, delete-orphan", passive_deletes=True
+    )
+    group_links: Mapped[list["StoryGroup"]] = relationship(
+        back_populates="story", cascade="all, delete-orphan", passive_deletes=True
+    )
+    artwork_links: Mapped[list["StoryArtwork"]] = relationship(
+        back_populates="story", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+
+class StoryCharacter(Base):
+    __tablename__ = "story_characters"
+
+    story_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("stories.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    character_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("characters.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    story: Mapped[Story] = relationship(back_populates="character_links")
+    character: Mapped[Character] = relationship(back_populates="story_links")
+
+
+class StoryGroup(Base):
+    __tablename__ = "story_groups"
+
+    story_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("stories.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    group_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("character_groups.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    story: Mapped[Story] = relationship(back_populates="group_links")
+    group: Mapped[CharacterGroup] = relationship(back_populates="story_links")
+
+
+class StoryArtwork(Base):
+    __tablename__ = "story_artworks"
+
+    story_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("stories.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    artwork_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("artworks.id", ondelete="RESTRICT"),
+        primary_key=True,
+    )
+    story: Mapped[Story] = relationship(back_populates="artwork_links")
+    artwork: Mapped["Artwork"] = relationship(back_populates="story_links")
 
 
 class LookupCategory(TimestampMixin, Base):
@@ -319,12 +416,13 @@ class Artwork(TimestampMixin, Base):
     __tablename__ = "artworks"
     __table_args__ = (
         CheckConstraint(
-            "owner_kind IN ('character', 'group')",
+            "owner_kind IS NULL OR owner_kind IN ('character', 'group')",
             name="valid_artwork_owner_kind",
         ),
         CheckConstraint(
-            "owner_kind = 'character' OR universe_id IS NOT NULL",
-            name="group_artwork_requires_universe",
+            "(owner_kind IS NULL AND owner_id IS NULL AND universe_id IS NULL "
+            "AND is_primary = 0) OR (owner_kind IS NOT NULL AND owner_id IS NOT NULL)",
+            name="valid_artwork_ownership",
         ),
         UniqueConstraint("relative_path", name="uq_artworks_relative_path"),
         Index("ix_artworks_universe_id", "universe_id"),
@@ -346,8 +444,8 @@ class Artwork(TimestampMixin, Base):
         String(IDENTIFIER_LENGTH),
         ForeignKey("universes.id", ondelete="RESTRICT"),
     )
-    owner_kind: Mapped[str] = mapped_column(String(16), nullable=False)
-    owner_id: Mapped[str] = mapped_column(String(IDENTIFIER_LENGTH), nullable=False)
+    owner_kind: Mapped[str | None] = mapped_column(String(16))
+    owner_id: Mapped[str | None] = mapped_column(String(IDENTIFIER_LENGTH))
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -357,3 +455,6 @@ class Artwork(TimestampMixin, Base):
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     universe: Mapped[Universe | None] = relationship(back_populates="artworks")
+    story_links: Mapped[list[StoryArtwork]] = relationship(
+        back_populates="artwork", cascade="all, delete-orphan", passive_deletes=True
+    )

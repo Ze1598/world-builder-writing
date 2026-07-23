@@ -4,12 +4,52 @@ This file is the durable execution log for the project. Update it at the end of 
 
 ## Current status
 
-- **Current roadmap feature:** F-09 — Story CRUD and Markdown content
+- **Current roadmap feature:** F-10 — Artwork associations and galleries
 - **Feature status:** Not started
-- **Last completed feature:** F-08 — Sequenced chapters and universe timeline
+- **Last completed feature:** F-09 — Story CRUD and Markdown content
 - **Last updated:** 2026-07-23
 
 ## Completed work
+
+### 2026-07-23 — F-09: Story CRUD and Markdown content
+
+**Status:** Complete
+
+**Implemented:**
+
+- Added universe-owned stories assigned to exactly one chapter, with required titles and optional Markdown content for placeholders.
+- Added character, group, existing-artwork, and newly uploaded artwork associations with universe isolation.
+- Added a global Unassigned artwork pool for ownerless files uploaded while creating or editing stories.
+- Added `.md`, `.markdown`, and `.txt` UTF-8 imports that populate the story editor, Markdown rendering, and Markdown downloads.
+- Added story creation, editing, sidebar selection, detail display, artwork gallery, and confirmed permanent deletion.
+- Added reverse story lists to character, group, and chapter profiles.
+- Blocked chapter removal while stories reference it and connected story links to character-move preflight and detachment.
+- Kept artwork records and files when a story is deleted.
+
+**Files or migrations:**
+
+- `alembic/versions/20260723_0006_stories.py`
+- Story domain models, persistence mappings, repository, service, page, navigation, and tests
+- Artwork ownership/storage changes for global ownerless files
+- Character, group, and chapter reverse-lookup integration
+
+**Verification:**
+
+- `just ready` passed Ruff formatting and linting, strict mypy, and all 72 tests.
+- Tests cover title-only placeholders, long Markdown round-trips, reverse lookups, universe isolation, ownerless artwork uploads, artwork preservation after story deletion, chapter-removal blocking, migrations, and Streamlit page rendering.
+- The local database migrated to `20260723_0006`; the migration created a schema backup in the ignored data directory.
+- The known iCloud `.pth` failure occurred before migration and was resolved with the prescribed `just rebuild-environment` recipe.
+
+**Decisions or deviations:**
+
+- Story content is optional because stories may begin as title-only or title-and-artwork placeholders.
+- Artwork uploaded from a story is globally unassigned until ownership is assigned later.
+- Story pages can link existing universe-owned or globally unassigned artwork.
+- Artwork-side reverse lookup remains part of F-10 because the product does not yet have an artwork management page.
+
+**Backlog created:**
+
+- None.
 
 ### 2026-07-23 — F-08: Sequenced chapters and universe timeline
 

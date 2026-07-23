@@ -42,6 +42,22 @@ class ArtworkRepository:
         )
         return list(self._session.scalars(statement))
 
+    def list_available_for_universe(self, universe_id: str) -> list[Artwork]:
+        """Return universe-owned and globally unassigned artwork."""
+        statement = (
+            select(Artwork)
+            .where(
+                (Artwork.universe_id == universe_id)
+                | (
+                    Artwork.universe_id.is_(None)
+                    & Artwork.owner_kind.is_(None)
+                    & Artwork.owner_id.is_(None)
+                )
+            )
+            .order_by(Artwork.title.collate("NOCASE"), Artwork.id)
+        )
+        return list(self._session.scalars(statement))
+
     def clear_character_primary(self, character_id: str) -> None:
         self._session.execute(
             update(Artwork)
@@ -70,7 +86,7 @@ class ArtworkRepository:
         record = Artwork(
             id=artwork_id,
             universe_id=values.universe_id,
-            owner_kind=values.owner_kind.value,
+            owner_kind=values.owner_kind.value if values.owner_kind is not None else None,
             owner_id=values.owner_id,
             title=values.title,
             description=values.description,

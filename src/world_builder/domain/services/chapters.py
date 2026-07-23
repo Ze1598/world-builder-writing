@@ -11,6 +11,7 @@ from world_builder.persistence.models import Chapter, ChapterCharacter, ChapterG
 from world_builder.persistence.repositories.chapters import ChapterRepository
 from world_builder.persistence.repositories.characters import CharacterRepository
 from world_builder.persistence.repositories.groups import CharacterGroupRepository
+from world_builder.persistence.repositories.stories import StoryRepository
 from world_builder.persistence.repositories.universes import UniverseRepository
 
 
@@ -75,6 +76,8 @@ class ChapterService:
         with database_session(self._session_factory) as session:
             repo = ChapterRepository(session)
             record = self._require(repo, chapter_id)
+            if StoryRepository(session).count_for_chapter(chapter_id):
+                raise ValueError("Move or remove every story in this chapter before removing it.")
             universe_id = record.universe_id
             repo.delete(record)
             session.flush()
