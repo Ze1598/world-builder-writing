@@ -6,15 +6,21 @@ import streamlit as st
 from pydantic import ValidationError
 
 from world_builder.domain.errors import DomainError
+from world_builder.domain.lookups import RELATIONSHIP_TYPE
 from world_builder.domain.models import (
     ArtworkDetailsInput,
     ArtworkEntityKind,
     CharacterInput,
+    CharacterRelationshipInput,
+    CharacterRelationshipView,
     CharacterView,
+    LookupValueView,
     UniverseView,
 )
 from world_builder.domain.services.artworks import ArtworkService
 from world_builder.domain.services.characters import CharacterService
+from world_builder.domain.services.lookups import LookupService
+from world_builder.domain.services.relationships import CharacterRelationshipService
 from world_builder.domain.services.stories import StoryService
 from world_builder.pages.artwork_links import render_existing_artwork_picker
 from world_builder.pages.artwork_previews import (
@@ -24,6 +30,7 @@ from world_builder.pages.artwork_previews import (
 )
 from world_builder.pages.context import render_universe_filter
 from world_builder.pages.notifications import queue_toast, render_queued_toast, show_toast
+from world_builder.persistence.models import RelationshipDirectionality
 
 SELECTED_CHARACTER_KEY = "selected_character_id"
 
@@ -325,12 +332,234 @@ def _render_add_artwork(service: CharacterService, character: CharacterView) -> 
                 st.rerun()
 
 
+def _relationship_values(
+    *,
+    character_id: str,
+    other_character_id: str,
+    relationship_type: LookupValueView,
+    direction_source_id: str,
+    description: str,
+) -> CharacterRelationshipInput:
+    source_id = (
+        direction_source_id
+        if relationship_type.relationship_directionality is RelationshipDirectionality.DIRECTIONAL
+        else None
+    )
+    return CharacterRelationshipInput(
+        first_character_id=character_id,
+        second_character_id=other_character_id,
+        relationship_type_id=relationship_type.id,
+        source_character_id=source_id,
+        description=description,
+    )
+
+
+def _render_relationship_form(
+    *,
+    relationship_service: CharacterRelationshipService,
+    character: CharacterView,
+    other_characters: list[CharacterView],
+    relationship_types: list[LookupValueView],
+    relationship: CharacterRelationshipView | None = None,
+) -> None:
+    other_by_id = {item.id: item for item in other_characters}
+    type_by_id = {item.id: item for item in relationship_types}
+    if relationship is None:
+        default_other_id = other_characters[0].id
+        default_type_id = relationship_types[0].id
+        description_value = ""
+        source_value = character.id
+        form_key = f"create-relationship-{character.id}"
+        button_label = "Add relationship"
+    else:
+        default_other_id = (
+            relationship.second_character_id
+            if relationship.first_character_id == character.id
+            else relationship.first_character_id
+        )
+        default_type_id = relationship.relationship_type_id
+        description_value = relationship.description
+        source_value = relationship.source_character_id or character.id
+        form_key = f"edit-relationship-{relationship.id}"
+        button_label = "Save relationship"
+
+    with st.form(form_key, border=False):
+        other_id = st.selectbox(
+            "Related character *",
+            options=list(other_by_id),
+            index=list(other_by_id).index(default_other_id),
+            format_func=lambda item_id: other_by_id[item_id].name,
+            key=f"{form_key}-other",
+        )
+        relationship_type_id = st.selectbox(
+            "Relationship type *",
+            options=list(type_by_id),
+            index=list(type_by_id).index(default_type_id),
+            format_func=lambda item_id: type_by_id[item_id].name,
+            key=f"{form_key}-type",
+        )
+        direction_labels = {
+            character.id: f"{character.name} → {other_by_id[other_id].name}",
+            other_id: f"{other_by_id[other_id].name} → {character.name}",
+        }
+        direction_source_id = st.selectbox(
+            "Direction",
+            options=list(direction_labels),
+            index=list(direction_labels).index(source_value),
+            format_func=direction_labels.__getitem__,
+            help="Used only when the selected relationship type is directional.",
+            key=f"{form_key}-direction",
+        )
+        description = st.text_area(
+            "Description",
+            value=description_value,
+            height=120,
+            key=f"{form_key}-description",
+        )
+        submitted = st.form_submit_button(
+            button_label,
+            type="primary",
+            icon=":material/link:",
+        )
+    if submitted:
+        values = _relationship_values(
+            character_id=character.id,
+            other_character_id=other_id,
+            relationship_type=type_by_id[relationship_type_id],
+            direction_source_id=direction_source_id,
+            description=description,
+        )
+        try:
+            if relationship is None:
+                relationship_service.create_relationship(values)
+            else:
+                relationship_service.update_relationship(relationship.id, values)
+        except (DomainError, ValueError) as error:
+            show_toast(str(error), kind="error")
+        else:
+            queue_toast(
+                "Relationship added." if relationship is None else "Relationship updated.",
+                kind="success",
+            )
+            st.rerun()
+
+    if relationship is not None:
+        confirm = st.checkbox(
+            "Confirm removal",
+            key=f"remove-relationship-confirm-{relationship.id}",
+        )
+        if st.button(
+            "Remove relationship",
+            key=f"remove-relationship-{relationship.id}",
+            icon=":material/link_off:",
+            disabled=not confirm,
+        ):
+            try:
+                relationship_service.delete_relationship(relationship.id)
+            except DomainError as error:
+                show_toast(str(error), kind="error")
+            else:
+                queue_toast("Relationship removed.", kind="success")
+                st.rerun()
+
+
+def _render_relationships(
+    relationship_service: CharacterRelationshipService,
+    lookup_service: LookupService,
+    character_service: CharacterService,
+    character: CharacterView,
+) -> None:
+    st.subheader("Relationships")
+    if character.universe_id is None:
+        st.caption("Assign this character to a universe before adding relationships.")
+        return
+
+    universe_characters = [
+        item
+        for item in character_service.list_for_universe(character.universe_id)
+        if item.id != character.id
+    ]
+    relationships = relationship_service.list_for_character(character.id)
+    existing_other_ids = {
+        (
+            item.second_character_id
+            if item.first_character_id == character.id
+            else item.first_character_id
+        )
+        for item in relationships
+    }
+    active_types = lookup_service.list_values(
+        character.universe_id,
+        RELATIONSHIP_TYPE,
+        active_only=True,
+    )
+
+    available_characters = [
+        item for item in universe_characters if item.id not in existing_other_ids
+    ]
+    if available_characters and active_types:
+        with st.expander("Add relationship"):
+            st.caption("\\* Required fields")
+            _render_relationship_form(
+                relationship_service=relationship_service,
+                character=character,
+                other_characters=available_characters,
+                relationship_types=active_types,
+            )
+    elif not universe_characters:
+        st.caption("Add another character to this universe to create a relationship.")
+    elif not active_types:
+        st.caption("Create an active relationship type in Managed lookups.")
+
+    if not relationships:
+        st.caption("No relationships recorded.")
+        return
+
+    all_types = lookup_service.list_values(character.universe_id, RELATIONSHIP_TYPE)
+    characters_by_id = {item.id: item for item in universe_characters}
+    for relationship in relationships:
+        other_id = (
+            relationship.second_character_id
+            if relationship.first_character_id == character.id
+            else relationship.first_character_id
+        )
+        other = characters_by_id[other_id]
+        type_options = list(active_types)
+        if relationship.relationship_type_id not in {item.id for item in type_options}:
+            current_type = next(
+                item for item in all_types if item.id == relationship.relationship_type_id
+            )
+            type_options.append(current_type)
+        if relationship.directionality is RelationshipDirectionality.DIRECTIONAL:
+            target_name = (
+                relationship.second_character_name
+                if relationship.source_character_id == relationship.first_character_id
+                else relationship.first_character_name
+            )
+            label = (
+                f"{relationship.source_character_name} → {target_name}"
+                f" · {relationship.relationship_type_name}"
+            )
+        else:
+            label = f"{other.name} · {relationship.relationship_type_name}"
+        with st.expander(label):
+            _render_relationship_form(
+                relationship_service=relationship_service,
+                character=character,
+                other_characters=[other],
+                relationship_types=type_options,
+                relationship=relationship,
+            )
+
+
 def _render_profile(
     service: CharacterService,
     character: CharacterView,
     universes: list[UniverseView],
     story_service: StoryService | None,
     artwork_service: ArtworkService | None,
+    lookup_service: LookupService | None,
+    relationship_service: CharacterRelationshipService | None,
 ) -> None:
     artworks = (
         artwork_service.list_gallery_for_character(character.id)
@@ -358,6 +587,13 @@ def _render_profile(
                     st.markdown(f"- **{story.title}** · {story.chapter_title}")
             else:
                 st.caption("No stories link to this character.")
+    if relationship_service is not None and lookup_service is not None:
+        _render_relationships(
+            relationship_service,
+            lookup_service,
+            service,
+            character,
+        )
     _render_location_change(service, character, universes)
     st.divider()
     st.subheader("Artwork gallery")
@@ -384,6 +620,8 @@ def render_characters(
     universes: list[UniverseView],
     story_service: StoryService | None = None,
     artwork_service: ArtworkService | None = None,
+    lookup_service: LookupService | None = None,
+    relationship_service: CharacterRelationshipService | None = None,
 ) -> None:
     """Render character creation and the selected profile."""
     render_preview_styles()
@@ -396,4 +634,12 @@ def render_characters(
         st.info("No characters match the current filter.")
         return
     st.divider()
-    _render_profile(service, selected, universes, story_service, artwork_service)
+    _render_profile(
+        service,
+        selected,
+        universes,
+        story_service,
+        artwork_service,
+        lookup_service,
+        relationship_service,
+    )

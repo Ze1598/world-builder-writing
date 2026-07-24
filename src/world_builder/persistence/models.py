@@ -130,6 +130,16 @@ class Character(TimestampMixin, Base):
     artwork_links: Mapped[list["ArtworkCharacter"]] = relationship(
         back_populates="character", cascade="all, delete-orphan", passive_deletes=True
     )
+    relationships_as_first: Mapped[list["CharacterRelationship"]] = relationship(
+        foreign_keys="CharacterRelationship.first_character_id",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    relationships_as_second: Mapped[list["CharacterRelationship"]] = relationship(
+        foreign_keys="CharacterRelationship.second_character_id",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 class CharacterGroup(TimestampMixin, Base):
@@ -198,6 +208,75 @@ class GroupMembership(TimestampMixin, Base):
 
     group: Mapped[CharacterGroup] = relationship(back_populates="memberships")
     character: Mapped[Character] = relationship(back_populates="group_memberships")
+
+
+class CharacterRelationship(TimestampMixin, Base):
+    """One current relationship between a canonical unordered character pair."""
+
+    __tablename__ = "character_relationships"
+    __table_args__ = (
+        UniqueConstraint(
+            "first_character_id",
+            "second_character_id",
+            name="uq_character_relationship_pair",
+        ),
+        CheckConstraint(
+            "first_character_id < second_character_id",
+            name="canonical_character_relationship_pair",
+        ),
+        CheckConstraint(
+            "source_character_id IS NULL OR "
+            "source_character_id = first_character_id OR "
+            "source_character_id = second_character_id",
+            name="valid_character_relationship_source",
+        ),
+        Index("ix_character_relationships_universe_id", "universe_id"),
+        Index("ix_character_relationships_first_character_id", "first_character_id"),
+        Index("ix_character_relationships_second_character_id", "second_character_id"),
+        Index("ix_character_relationships_type_id", "relationship_type_id"),
+    )
+
+    id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        primary_key=True,
+        default=new_identifier,
+    )
+    universe_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("universes.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    first_character_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("characters.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    second_character_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("characters.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    relationship_type_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("lookup_values.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    source_character_id: Mapped[str | None] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("characters.id", ondelete="CASCADE"),
+    )
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+    first_character: Mapped[Character] = relationship(
+        foreign_keys=[first_character_id],
+        overlaps="relationships_as_first",
+    )
+    second_character: Mapped[Character] = relationship(
+        foreign_keys=[second_character_id],
+        overlaps="relationships_as_second",
+    )
+    source_character: Mapped[Character | None] = relationship(foreign_keys=[source_character_id])
+    relationship_type: Mapped["LookupValue"] = relationship()
 
 
 class Chapter(TimestampMixin, Base):

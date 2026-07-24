@@ -18,14 +18,14 @@ def test_missing_database_requires_migration(database_path: Path) -> None:
 
     assert status.state is SchemaState.MISSING
     assert status.current_revision is None
-    assert status.head_revision == "20260724_0007"
+    assert status.head_revision == "20260724_0008"
 
 
 def test_migrate_creates_current_schema_without_backup(database_path: Path) -> None:
     result = migrate_database(database_path)
 
     assert result.previous_revision is None
-    assert result.current_revision == "20260724_0007"
+    assert result.current_revision == "20260724_0008"
     assert result.backup_path is None
     assert get_schema_status(database_path).state is SchemaState.CURRENT
 
@@ -40,6 +40,7 @@ def test_migrate_creates_current_schema_without_backup(database_path: Path) -> N
             "chapter_characters",
             "chapter_groups",
             "chapters",
+            "character_relationships",
             "characters",
             "character_groups",
             "group_memberships",
@@ -75,7 +76,7 @@ def test_current_database_does_not_create_redundant_backup(database_path: Path) 
 
     result = migrate_database(database_path)
 
-    assert result.previous_revision == "20260724_0007"
-    assert result.current_revision == "20260724_0007"
+    assert result.previous_revision == "20260724_0008"
+    assert result.current_revision == "20260724_0008"
     assert result.backup_path is None
     assert not (database_path.parent / "backups").exists()

@@ -63,11 +63,12 @@ The application runs locally on macOS and Windows through Streamlit. It does not
 ### 2.6 Relationships
 
 - Relationships connect two characters in the same universe.
+- Each unordered character pair can have at most one relationship record.
 - Relationship types come from a user-managed lookup list.
 - A relationship type may be symmetric or directional.
 - Directional relationships preserve source and target character order.
-- Relationship changes may be recorded against a chapter and optionally a source story so the current relationship state can be determined.
-- Historical relationship data remains available on profiles, but the graph explorer only visualizes current relationships.
+- A relationship stores only its current managed type, direction, and optional Markdown description.
+- Editing a relationship overwrites its current state; relationships have no chapter, story, or history layer.
 
 ### 2.7 Milestones
 
@@ -201,7 +202,6 @@ chapters
 stories
 artworks
 relationships
-relationship_states
 milestones
 lookup_categories
 lookup_values
@@ -493,27 +493,28 @@ Each feature below is intended to fit into an isolated implementation chat. A fe
 - Ownership remains unchanged when associations change.
 - Primary character artwork cannot be deleted until another primary is selected.
 
-### F-11 — Current and historical character relationships
+### F-11 — Current character relationships
 
-**Goal:** Record relationship evolution while exposing a clear current state.
+**Goal:** Record the current relationship between character pairs.
 
-**Dependencies:** F-03, F-05, F-08, F-09.
+**Dependencies:** F-03, F-05.
 
 **Deliverables:**
 
-- Relationship and relationship-state schema.
+- One canonical relationship record per unordered character pair.
 - Create symmetric and directional relationships.
-- Relationship state fields: managed type, optional Markdown description, chapter, and optional source story.
-- Determine current state from chapter sequence and a deterministic tie-break rule.
-- Character profile relationship list with current state first and expandable history.
+- Relationship fields: managed type, optional Markdown description, and directional source when required.
+- Direct create, edit, and remove controls on character profiles.
+- Relationship counts and deletion within the character-move transaction.
 - Validation preventing self-links, invalid directionality, and cross-universe edges.
 
 **Acceptance criteria:**
 
-- `A → B` remains distinct from `B → A` for directional types.
+- A directional relationship stores one explicit direction for the character pair.
 - Symmetric duplicates are prevented regardless of character selection order.
-- Current state is calculated consistently from chapter order.
-- Historical states never appear as separate current graph edges.
+- Reverse-order creation cannot create a second relationship for the same pair.
+- Editing overwrites the existing record rather than creating history.
+- Moving either character reports and removes the relationship.
 
 ### F-12 — Milestone idea inbox
 
@@ -548,7 +549,7 @@ Each feature below is intended to fit into an isolated implementation chat. A fe
 - Current Markdown summary and primary artwork.
 - Complete artwork gallery.
 - Current group memberships and descriptions.
-- Current relationships with expandable history.
+- Current relationships with their direction and description.
 - Linked chapters and stories.
 - Linked milestones clearly labeled as ideas.
 - Disabled status and universe ownership.

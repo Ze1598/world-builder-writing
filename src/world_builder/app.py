@@ -7,6 +7,7 @@ from world_builder.domain.services.chapters import ChapterService
 from world_builder.domain.services.characters import CharacterService
 from world_builder.domain.services.groups import CharacterGroupService
 from world_builder.domain.services.lookups import LookupService
+from world_builder.domain.services.relationships import CharacterRelationshipService
 from world_builder.domain.services.stories import StoryService
 from world_builder.domain.services.universes import UniverseService
 from world_builder.pages.artworks import render_artworks
@@ -62,6 +63,7 @@ def main() -> None:
     )
     story_service = StoryService(session_factory, ArtworkStorage(settings.artwork_directory))
     artwork_service = ArtworkService(session_factory, ArtworkStorage(settings.artwork_directory))
+    relationship_service = CharacterRelationshipService(session_factory)
     selected_universe = get_selected_universe(universe_service)
     navigation = st.navigation(
         [
@@ -95,6 +97,8 @@ def main() -> None:
                     universe_service.list_universes(),
                     story_service,
                     artwork_service,
+                    lookup_service,
+                    relationship_service,
                 ),
                 title="Characters",
                 icon=":material/groups:",

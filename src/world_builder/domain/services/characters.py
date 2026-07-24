@@ -23,6 +23,9 @@ from world_builder.persistence.repositories.artworks import ArtworkRepository
 from world_builder.persistence.repositories.chapters import ChapterRepository
 from world_builder.persistence.repositories.characters import CharacterRepository
 from world_builder.persistence.repositories.memberships import GroupMembershipRepository
+from world_builder.persistence.repositories.relationships import (
+    CharacterRelationshipRepository,
+)
 from world_builder.persistence.repositories.stories import StoryRepository
 from world_builder.persistence.repositories.universes import UniverseRepository
 from world_builder.storage.artwork import ArtworkStorage, StoredArtworkFile
@@ -131,6 +134,9 @@ class CharacterService:
             membership_count = GroupMembershipRepository(session).count_for_character(character_id)
             chapter_link_count = ChapterRepository(session).count_links_for_character(character_id)
             story_link_count = StoryRepository(session).count_links_for_character(character_id)
+            relationship_count = CharacterRelationshipRepository(session).count_for_character(
+                character_id
+            )
             artwork_association_count = (
                 0
                 if target_universe_id is None
@@ -143,6 +149,7 @@ class CharacterService:
                 artwork_count=len(artworks),
                 artwork_association_count=artwork_association_count,
                 disables_character=character.universe_id is not None and character.is_active,
+                relationship_count=relationship_count,
                 membership_count=membership_count,
                 story_link_count=story_link_count,
                 chapter_link_count=chapter_link_count,
@@ -187,6 +194,7 @@ class CharacterService:
 
                 if character.universe_id is not None:
                     character.is_active = False
+                    CharacterRelationshipRepository(session).delete_for_character(character_id)
                     GroupMembershipRepository(session).delete_for_character(character_id)
                     ChapterRepository(session).delete_links_for_character(character_id)
                     StoryRepository(session).delete_links_for_character(character_id)

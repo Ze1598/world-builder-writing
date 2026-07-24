@@ -259,6 +259,56 @@ class CharacterView(BaseModel):
         return value.astimezone(UTC)
 
 
+class CharacterRelationshipInput(BaseModel):
+    """Validated fields for one current relationship between two characters."""
+
+    model_config = ConfigDict(frozen=True)
+
+    first_character_id: str
+    second_character_id: str
+    relationship_type_id: str
+    source_character_id: str | None = None
+    description: str = ""
+
+    @field_validator(
+        "first_character_id",
+        "second_character_id",
+        "relationship_type_id",
+        "source_character_id",
+    )
+    @classmethod
+    def validate_relationship_identifier(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        from uuid import UUID
+
+        return str(UUID(value))
+
+    @field_validator("description", mode="before")
+    @classmethod
+    def strip_relationship_description(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+
+class CharacterRelationshipView(BaseModel):
+    """Display-ready current relationship edge."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    universe_id: str
+    first_character_id: str
+    first_character_name: str
+    second_character_id: str
+    second_character_name: str
+    relationship_type_id: str
+    relationship_type_name: str
+    directionality: RelationshipDirectionality
+    source_character_id: str | None
+    source_character_name: str | None
+    description: str
+
+
 class CharacterMovePreflight(BaseModel):
     """Read-only report of what a character location change will affect."""
 

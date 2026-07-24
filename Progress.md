@@ -4,12 +4,45 @@ This file is the durable execution log for the project. Update it at the end of 
 
 ## Current status
 
-- **Current roadmap feature:** F-11 — Current and historical character relationships
+- **Current roadmap feature:** F-12 — Milestone idea inbox
 - **Feature status:** Not started
-- **Last completed feature:** F-10 — Artwork associations and galleries
+- **Last completed feature:** F-11 — Current character relationships
 - **Last updated:** 2026-07-24
 
 ## Completed work
+
+### 2026-07-24 — F-11: Current character relationships
+
+**Status:** Complete
+
+**Implemented:**
+
+- Added one canonical current relationship record per unordered character pair.
+- Added symmetric and one-way directional relationships using universe-managed relationship types.
+- Added optional Markdown descriptions and overwrite-in-place editing without history, chapter, or story records.
+- Added direct character-profile controls to create, edit, reverse, and remove relationships.
+- Added validation for self-links, unassigned characters, cross-universe edges, disabled lookup types, and missing directional sources.
+- Added relationship counts to character-move preflight and transactional relationship removal during movement.
+
+**Files or migrations:**
+
+- `20260724_0008_character_relationships.py`
+- Relationship domain models, service, repository, character page, and application wiring
+- Relationship service and migration tests
+
+**Verification:**
+
+- `just check` passed Ruff linting and formatting, strict mypy, and all 83 tests.
+- Service tests cover canonical uniqueness, symmetric and directional behavior, overwrite editing, boundary validation, and character-move cleanup.
+
+**Decisions or deviations:**
+
+- F-11 was simplified from historical relationship states to one current record per character pair.
+- Relationship direction is stored as one optional source-character identifier; the opposite endpoint is derived from the canonical pair.
+
+**Backlog created:**
+
+- None.
 
 ### 2026-07-24 — Artwork gallery linking and profile layout refinement
 
