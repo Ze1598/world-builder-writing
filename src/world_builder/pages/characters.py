@@ -20,6 +20,7 @@ from world_builder.domain.models import (
 from world_builder.domain.services.artworks import ArtworkService
 from world_builder.domain.services.characters import CharacterService
 from world_builder.domain.services.lookups import LookupService
+from world_builder.domain.services.milestones import MilestoneService
 from world_builder.domain.services.relationships import CharacterRelationshipService
 from world_builder.domain.services.stories import StoryService
 from world_builder.pages.artwork_links import render_existing_artwork_picker
@@ -29,6 +30,7 @@ from world_builder.pages.artwork_previews import (
     render_profile_preview,
 )
 from world_builder.pages.context import render_universe_filter
+from world_builder.pages.milestone_links import render_linked_milestones
 from world_builder.pages.notifications import queue_toast, render_queued_toast, show_toast
 from world_builder.persistence.models import RelationshipDirectionality
 
@@ -560,6 +562,7 @@ def _render_profile(
     artwork_service: ArtworkService | None,
     lookup_service: LookupService | None,
     relationship_service: CharacterRelationshipService | None,
+    milestone_service: MilestoneService | None,
 ) -> None:
     artworks = (
         artwork_service.list_gallery_for_character(character.id)
@@ -594,6 +597,8 @@ def _render_profile(
             service,
             character,
         )
+    if milestone_service is not None:
+        render_linked_milestones(milestone_service.list_for_character, character.id)
     _render_location_change(service, character, universes)
     st.divider()
     st.subheader("Artwork gallery")
@@ -622,6 +627,7 @@ def render_characters(
     artwork_service: ArtworkService | None = None,
     lookup_service: LookupService | None = None,
     relationship_service: CharacterRelationshipService | None = None,
+    milestone_service: MilestoneService | None = None,
 ) -> None:
     """Render character creation and the selected profile."""
     render_preview_styles()
@@ -642,4 +648,5 @@ def render_characters(
         artwork_service,
         lookup_service,
         relationship_service,
+        milestone_service,
     )

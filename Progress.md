@@ -4,12 +4,47 @@ This file is the durable execution log for the project. Update it at the end of 
 
 ## Current status
 
-- **Current roadmap feature:** F-12 — Milestone idea inbox
+- **Current roadmap feature:** F-13 — Character 360-degree profile
 - **Feature status:** Not started
-- **Last completed feature:** F-11 — Current character relationships
+- **Last completed feature:** F-12 — Milestone idea inbox
 - **Last updated:** 2026-07-24
 
 ## Completed work
+
+### 2026-07-24 — F-12: Milestone idea inbox
+
+**Status:** Complete
+
+**Implemented:**
+
+- Added universe-owned milestone records with required titles and Markdown planning text.
+- Added independent many-to-many links to characters, groups, chapters, and stories.
+- Added a fast-capture form that creates unlinked ideas without requiring association choices.
+- Added All milestones and Unlinked inbox filters with direct editing of content and links.
+- Added permanent milestone deletion with confirmation.
+- Added linked-milestone reverse lookups to character, group, chapter, and story profiles.
+- Added universe-boundary validation for every association.
+- Added milestone link counts and transactional detachment to character movement without deleting the milestone itself.
+
+**Files or migrations:**
+
+- `20260724_0009_milestones.py`
+- Milestone domain models, service, repository, page, shared reverse-lookup renderer, and application wiring
+- Milestone service and migration tests
+
+**Verification:**
+
+- `just check` passed Ruff linting and formatting, strict mypy, and all 86 tests before local migration.
+- Service tests cover unlinked capture, all four association types, overwrite editing, deletion, and cross-universe rejection.
+
+**Decisions or deviations:**
+
+- Fast capture requires only title and description while exposing the same four optional entity-link selectors as the selected milestone editor.
+- Reverse lookups identify planning ideas and explicitly state that they do not alter canonical content.
+
+**Backlog created:**
+
+- None.
 
 ### 2026-07-24 — F-11: Current character relationships
 

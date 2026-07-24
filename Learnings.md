@@ -126,6 +126,31 @@ Dynamic enablement can be used when the controlling widget is outside the form, 
 
 ## SQLAlchemy persistence
 
+### SQLite reloads timezone-aware timestamps without UTC metadata
+
+**Symptom**
+
+A domain view returned immediately after creation does not compare equal to the same
+record reloaded from SQLite. Every business field matches, but `created_at` and
+`updated_at` differ because one value is timezone-aware and the reloaded value is
+naive.
+
+**Cause**
+
+SQLite does not preserve timezone metadata for SQLAlchemy `DateTime(timezone=True)`
+columns. Python-side defaults retain UTC metadata until the value is persisted and
+reloaded.
+
+**Resolution**
+
+Normalize timestamp fields in every public domain view: attach UTC when SQLite
+returns a naive value and convert aware values to UTC.
+
+**Caveat**
+
+Normalization belongs at the domain boundary. Altering tests to ignore timezone
+differences would leave inconsistent timestamp contracts in application code.
+
 ### Uniform mutations across association tables require Core table metadata
 
 **Symptom**

@@ -352,6 +352,64 @@ class CharacterMoveResult(BaseModel):
     cleanup_warning: str | None = None
 
 
+class MilestoneInput(BaseModel):
+    """Validated fields for one universe-scoped planning idea."""
+
+    model_config = ConfigDict(frozen=True)
+
+    universe_id: str
+    title: str = Field(min_length=1, max_length=200)
+    content: str = Field(min_length=1)
+    character_ids: tuple[str, ...] = ()
+    group_ids: tuple[str, ...] = ()
+    chapter_ids: tuple[str, ...] = ()
+    story_ids: tuple[str, ...] = ()
+
+    @field_validator("universe_id")
+    @classmethod
+    def validate_milestone_universe(cls, value: str) -> str:
+        from uuid import UUID
+
+        return str(UUID(value))
+
+    @field_validator("title", "content", mode="before")
+    @classmethod
+    def strip_milestone_text(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+
+class MilestoneView(BaseModel):
+    """Read-only planning idea with display-ready reverse links."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    universe_id: str
+    title: str
+    content: str
+    character_ids: tuple[str, ...]
+    character_names: tuple[str, ...]
+    group_ids: tuple[str, ...]
+    group_names: tuple[str, ...]
+    chapter_ids: tuple[str, ...]
+    chapter_titles: tuple[str, ...]
+    story_ids: tuple[str, ...]
+    story_titles: tuple[str, ...]
+    created_at: datetime
+    updated_at: datetime
+
+    @field_validator("created_at", "updated_at", mode="after")
+    @classmethod
+    def normalize_milestone_utc(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)
+
+    @property
+    def is_unlinked(self) -> bool:
+        return not (self.character_ids or self.group_ids or self.chapter_ids or self.story_ids)
+
+
 class CharacterGroupInput(BaseModel):
     """Validated editable fields for a universe-owned character group."""
 

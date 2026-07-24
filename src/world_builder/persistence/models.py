@@ -97,6 +97,9 @@ class Universe(TimestampMixin, Base):
     stories: Mapped[list["Story"]] = relationship(
         back_populates="universe", cascade="all, delete-orphan", passive_deletes=True
     )
+    milestones: Mapped[list["Milestone"]] = relationship(
+        back_populates="universe", cascade="all, delete-orphan", passive_deletes=True
+    )
 
 
 class Character(TimestampMixin, Base):
@@ -434,6 +437,104 @@ class StoryArtwork(Base):
     )
     story: Mapped[Story] = relationship(back_populates="artwork_links")
     artwork: Mapped["Artwork"] = relationship(back_populates="story_links")
+
+
+class Milestone(TimestampMixin, Base):
+    """A universe-scoped planning idea with optional entity links."""
+
+    __tablename__ = "milestones"
+    __table_args__ = (Index("ix_milestones_universe_id", "universe_id"),)
+
+    id: Mapped[str] = mapped_column(String(IDENTIFIER_LENGTH), primary_key=True)
+    universe_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("universes.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+
+    universe: Mapped[Universe] = relationship(back_populates="milestones")
+    character_links: Mapped[list["MilestoneCharacter"]] = relationship(
+        back_populates="milestone", cascade="all, delete-orphan", passive_deletes=True
+    )
+    group_links: Mapped[list["MilestoneGroup"]] = relationship(
+        back_populates="milestone", cascade="all, delete-orphan", passive_deletes=True
+    )
+    chapter_links: Mapped[list["MilestoneChapter"]] = relationship(
+        back_populates="milestone", cascade="all, delete-orphan", passive_deletes=True
+    )
+    story_links: Mapped[list["MilestoneStory"]] = relationship(
+        back_populates="milestone", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+
+class MilestoneCharacter(Base):
+    __tablename__ = "milestone_characters"
+
+    milestone_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("milestones.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    character_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("characters.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    milestone: Mapped[Milestone] = relationship(back_populates="character_links")
+    character: Mapped[Character] = relationship()
+
+
+class MilestoneGroup(Base):
+    __tablename__ = "milestone_groups"
+
+    milestone_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("milestones.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    group_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("character_groups.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    milestone: Mapped[Milestone] = relationship(back_populates="group_links")
+    group: Mapped[CharacterGroup] = relationship()
+
+
+class MilestoneChapter(Base):
+    __tablename__ = "milestone_chapters"
+
+    milestone_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("milestones.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    chapter_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("chapters.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    milestone: Mapped[Milestone] = relationship(back_populates="chapter_links")
+    chapter: Mapped[Chapter] = relationship()
+
+
+class MilestoneStory(Base):
+    __tablename__ = "milestone_stories"
+
+    milestone_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("milestones.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    story_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("stories.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    milestone: Mapped[Milestone] = relationship(back_populates="story_links")
+    story: Mapped[Story] = relationship()
 
 
 class ArtworkCharacter(Base):

@@ -16,6 +16,7 @@ from world_builder.domain.services.artworks import ArtworkService
 from world_builder.domain.services.chapters import ChapterService
 from world_builder.domain.services.characters import CharacterService
 from world_builder.domain.services.groups import CharacterGroupService
+from world_builder.domain.services.milestones import MilestoneService
 from world_builder.domain.services.stories import StoryService
 from world_builder.pages.artwork_links import render_existing_artwork_picker
 from world_builder.pages.artwork_previews import (
@@ -23,6 +24,7 @@ from world_builder.pages.artwork_previews import (
     render_preview_styles,
 )
 from world_builder.pages.context import render_universe_filter
+from world_builder.pages.milestone_links import render_linked_milestones
 from world_builder.pages.notifications import queue_toast, render_queued_toast, show_toast
 
 SELECTED_CHAPTER_KEY = "selected_chapter_id"
@@ -240,6 +242,7 @@ def render_chapters(
     story_service: StoryService | None = None,
     artwork_service: ArtworkService | None = None,
     universes: list[UniverseView] | None = None,
+    milestone_service: MilestoneService | None = None,
 ) -> None:
     """Render universe-scoped chapter management and relative chronology."""
     render_preview_styles()
@@ -291,5 +294,7 @@ def render_chapters(
                     st.markdown(f"- **{story.title}**")
             else:
                 st.caption("No stories belong to this chapter.")
+    if milestone_service is not None:
+        render_linked_milestones(milestone_service.list_for_chapter, selected.id)
     _render_sequence_controls(chapter_service, selected, chapters)
     _render_remove(chapter_service, selected)

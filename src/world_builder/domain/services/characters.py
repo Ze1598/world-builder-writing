@@ -23,6 +23,7 @@ from world_builder.persistence.repositories.artworks import ArtworkRepository
 from world_builder.persistence.repositories.chapters import ChapterRepository
 from world_builder.persistence.repositories.characters import CharacterRepository
 from world_builder.persistence.repositories.memberships import GroupMembershipRepository
+from world_builder.persistence.repositories.milestones import MilestoneRepository
 from world_builder.persistence.repositories.relationships import (
     CharacterRelationshipRepository,
 )
@@ -137,6 +138,9 @@ class CharacterService:
             relationship_count = CharacterRelationshipRepository(session).count_for_character(
                 character_id
             )
+            milestone_link_count = MilestoneRepository(session).count_links_for_character(
+                character_id
+            )
             artwork_association_count = (
                 0
                 if target_universe_id is None
@@ -153,6 +157,7 @@ class CharacterService:
                 membership_count=membership_count,
                 story_link_count=story_link_count,
                 chapter_link_count=chapter_link_count,
+                milestone_link_count=milestone_link_count,
             )
 
     def move_character(
@@ -196,6 +201,7 @@ class CharacterService:
                     character.is_active = False
                     CharacterRelationshipRepository(session).delete_for_character(character_id)
                     GroupMembershipRepository(session).delete_for_character(character_id)
+                    MilestoneRepository(session).delete_links_for_character(character_id)
                     ChapterRepository(session).delete_links_for_character(character_id)
                     StoryRepository(session).delete_links_for_character(character_id)
                 character_repository.move(character, target_universe_id)
