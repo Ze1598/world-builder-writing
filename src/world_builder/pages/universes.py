@@ -10,7 +10,7 @@ from pydantic import ValidationError
 from world_builder.domain.errors import DomainError
 from world_builder.domain.models import UniverseInput, UniverseView
 from world_builder.domain.services.universes import UniverseService
-from world_builder.pages.context import SELECTED_UNIVERSE_KEY
+from world_builder.pages.context import SELECTED_UNIVERSE_KEY, UNIVERSE_SWITCHER_KEY
 from world_builder.pages.notifications import queue_toast, render_queued_toast, show_toast
 
 
@@ -44,6 +44,7 @@ def _render_create_form(service: UniverseService) -> None:
         return
 
     st.session_state[SELECTED_UNIVERSE_KEY] = universe.id
+    st.session_state[UNIVERSE_SWITCHER_KEY] = universe.id
     queue_toast(f'Created universe "{universe.name}".', kind="success")
     st.rerun()
 

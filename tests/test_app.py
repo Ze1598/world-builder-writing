@@ -127,7 +127,7 @@ def test_universe_table_edit_persists_widget_changes(
     get_settings.cache_clear()
 
 
-def test_character_page_renders_creation_and_sidebar_selection(
+def test_character_page_renders_creation_and_top_selection(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -152,8 +152,8 @@ def test_character_page_renders_creation_and_sidebar_selection(
     assert not app.exception
     assert app.title[0].value == "Characters"
     assert app.expander[0].label == "Create character"
-    assert app.segmented_control[0].value == "All"
-    assert any("sidebar filter" in info.value.lower() for info in app.info)
+    assert next(item for item in app.selectbox if item.label == "Status").value == "All"
+    assert any("current filter" in info.value.lower() for info in app.info)
     assert data_directory.exists()
     get_settings.cache_clear()
 
@@ -268,4 +268,47 @@ def test_story_page_renders_placeholder_creation_form(
     assert app.title[0].value == "Stories"
     assert app.expander[0].label == "Create story"
     assert any(item.label == "Story Markdown" for item in app.text_area)
+    get_settings.cache_clear()
+
+
+def test_artwork_page_renders_universe_library(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_directory = _configure_test_data(tmp_path, monkeypatch)
+    session_factory = get_session_factory(data_directory / "world_builder.sqlite")
+    UniverseService(session_factory).create_universe(UniverseInput(name="Test"))
+
+    def artwork_page() -> None:
+        from world_builder.domain.services.artworks import ArtworkService
+        from world_builder.domain.services.chapters import ChapterService
+        from world_builder.domain.services.characters import CharacterService
+        from world_builder.domain.services.groups import CharacterGroupService
+        from world_builder.domain.services.stories import StoryService
+        from world_builder.domain.services.universes import UniverseService
+        from world_builder.pages.artworks import render_artworks
+        from world_builder.persistence.runtime import get_session_factory
+        from world_builder.settings import get_settings
+        from world_builder.storage.artwork import ArtworkStorage
+
+        settings = get_settings()
+        test_session_factory = get_session_factory(settings.database_path)
+        storage = ArtworkStorage(settings.artwork_directory)
+        universes = UniverseService(test_session_factory).list_universes()
+        render_artworks(
+            ArtworkService(test_session_factory, storage),
+            CharacterService(test_session_factory, storage),
+            CharacterGroupService(test_session_factory, storage),
+            ChapterService(test_session_factory),
+            StoryService(test_session_factory, storage),
+            universes,
+            universes[0],
+        )
+
+    app = AppTest.from_function(artwork_page, default_timeout=10).run()
+
+    assert not app.exception
+    assert app.title[0].value == "Artwork"
+    assert next(item for item in app.selectbox if item.label == "Location").value == "Universe"
+    assert any("No artwork exists" in info.value for info in app.info)
     get_settings.cache_clear()

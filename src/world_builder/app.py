@@ -2,15 +2,17 @@
 
 import streamlit as st
 
+from world_builder.domain.services.artworks import ArtworkService
 from world_builder.domain.services.chapters import ChapterService
 from world_builder.domain.services.characters import CharacterService
 from world_builder.domain.services.groups import CharacterGroupService
 from world_builder.domain.services.lookups import LookupService
 from world_builder.domain.services.stories import StoryService
 from world_builder.domain.services.universes import UniverseService
+from world_builder.pages.artworks import render_artworks
 from world_builder.pages.chapters import render_chapters
 from world_builder.pages.characters import render_characters
-from world_builder.pages.context import render_universe_switcher
+from world_builder.pages.context import get_selected_universe
 from world_builder.pages.groups import render_groups
 from world_builder.pages.home import render_home
 from world_builder.pages.lookups import render_lookups
@@ -42,7 +44,8 @@ def main() -> None:
                     url_path="home",
                     default=True,
                 )
-            ]
+            ],
+            position="top",
         )
         navigation.run()
         return
@@ -58,7 +61,8 @@ def main() -> None:
         session_factory, ArtworkStorage(settings.artwork_directory)
     )
     story_service = StoryService(session_factory, ArtworkStorage(settings.artwork_directory))
-    selected_universe = render_universe_switcher(universe_service)
+    artwork_service = ArtworkService(session_factory, ArtworkStorage(settings.artwork_directory))
+    selected_universe = get_selected_universe(universe_service)
     navigation = st.navigation(
         [
             st.Page(
@@ -75,7 +79,11 @@ def main() -> None:
                 url_path="universes",
             ),
             st.Page(
-                lambda: render_lookups(lookup_service, selected_universe),
+                lambda: render_lookups(
+                    lookup_service,
+                    selected_universe,
+                    universe_service.list_universes(),
+                ),
                 title="Managed lookups",
                 icon=":material/list_alt:",
                 url_path="lookups",
@@ -86,6 +94,7 @@ def main() -> None:
                     selected_universe,
                     universe_service.list_universes(),
                     story_service,
+                    artwork_service,
                 ),
                 title="Characters",
                 icon=":material/groups:",
@@ -97,6 +106,8 @@ def main() -> None:
                     character_service,
                     selected_universe,
                     story_service,
+                    artwork_service,
+                    universe_service.list_universes(),
                 ),
                 title="Character groups",
                 icon=":material/group_work:",
@@ -109,6 +120,8 @@ def main() -> None:
                     group_service,
                     selected_universe,
                     story_service,
+                    artwork_service,
+                    universe_service.list_universes(),
                 ),
                 title="Chapters",
                 icon=":material/view_timeline:",
@@ -121,12 +134,29 @@ def main() -> None:
                     character_service,
                     group_service,
                     selected_universe,
+                    artwork_service,
+                    universe_service.list_universes(),
                 ),
                 title="Stories",
                 icon=":material/menu_book:",
                 url_path="stories",
             ),
-        ]
+            st.Page(
+                lambda: render_artworks(
+                    artwork_service,
+                    character_service,
+                    group_service,
+                    chapter_service,
+                    story_service,
+                    universe_service.list_universes(),
+                    selected_universe,
+                ),
+                title="Artwork",
+                icon=":material/palette:",
+                url_path="artwork",
+            ),
+        ],
+        position="top",
     )
     navigation.run()
 

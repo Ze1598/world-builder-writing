@@ -46,11 +46,12 @@ The application runs locally on macOS and Windows through Streamlit. It does not
 - A story contains a title and potentially lengthy Markdown text.
 - Saving an edited story overwrites the current record; story revision history is out of scope.
 - Story creation and editing include character and group multi-selects and an artwork selector.
-- Stories and chapters may only select existing artwork; they do not originate artwork uploads.
+- Stories can link existing artwork or upload new globally unassigned artwork.
+- Chapters link existing artwork and do not originate artwork uploads.
 
 ### 2.5 Artwork
 
-- Artwork always originates from and is owned by either one character or one group.
+- Artwork can be owned by one character or one group, or remain in the global Unassigned pool.
 - Artwork has a title and long Markdown description.
 - Character artwork is stored in a folder belonging to the character.
 - Group artwork is stored flat within the universe's group-artwork folder.
@@ -80,7 +81,7 @@ The application runs locally on macOS and Windows through Streamlit. It does not
 
 ### 2.8 Managed lookup values
 
-- Lookup categories include relationship types, artwork association roles, membership roles, and themes/tags.
+- Lookup categories include relationship types, membership roles, and themes/tags.
 - Values have a name, optional description, display order, and active/inactive status.
 - Used values are deactivated rather than deleted.
 - Renaming a value updates its display everywhere without changing its identity.
@@ -479,8 +480,8 @@ Each feature below is intended to fit into an isolated implementation chat. A fe
 **Deliverables:**
 
 - Associate existing artwork with additional characters, groups, chapters, and stories.
-- Record an optional managed role on each association.
 - Artwork detail page showing owner and every usage.
+- Transfer artwork ownership between characters, groups, and the global Unassigned pool.
 - Character, group, chapter, and story galleries.
 - Usage report before artwork deletion.
 - Safe artwork deletion that removes associations and its owned file only after confirmation.

@@ -1,6 +1,7 @@
 """Framework-independent input and view models."""
 
 from datetime import UTC, datetime
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -155,6 +156,64 @@ class ArtworkView(BaseModel):
     is_primary: bool
 
 
+class ArtworkEntityKind(StrEnum):
+    """Entity types that can use an artwork without owning it."""
+
+    CHARACTER = "character"
+    GROUP = "group"
+    CHAPTER = "chapter"
+    STORY = "story"
+
+
+class ArtworkUsageView(BaseModel):
+    """One display-ready usage association for an artwork."""
+
+    model_config = ConfigDict(frozen=True)
+
+    entity_kind: ArtworkEntityKind
+    entity_id: str
+    entity_name: str
+    universe_id: str
+
+
+class ArtworkDetailView(BaseModel):
+    """Artwork metadata enriched with ownership and every usage."""
+
+    model_config = ConfigDict(frozen=True)
+
+    artwork: ArtworkView
+    owner_name: str | None
+    usages: tuple[ArtworkUsageView, ...]
+
+
+class ArtworkMovePreflight(BaseModel):
+    """Report of ownership transfer effects before files or links change."""
+
+    model_config = ConfigDict(frozen=True)
+
+    artwork_id: str
+    source_owner_kind: ArtworkOwnerKind | None
+    source_owner_id: str | None
+    target_owner_kind: ArtworkOwnerKind | None
+    target_owner_id: str | None
+    source_universe_id: str | None
+    target_universe_id: str | None
+    incompatible_usage_count: int
+
+    @property
+    def requires_confirmation(self) -> bool:
+        return self.incompatible_usage_count > 0
+
+
+class ArtworkMutationResult(BaseModel):
+    """Completed artwork mutation and any filesystem cleanup warning."""
+
+    model_config = ConfigDict(frozen=True)
+
+    artwork: ArtworkView | None = None
+    cleanup_warning: str | None = None
+
+
 class CharacterInput(BaseModel):
     """Validated fields accepted while creating or editing a character."""
 
@@ -209,6 +268,7 @@ class CharacterMovePreflight(BaseModel):
     source_universe_id: str | None
     target_universe_id: str | None
     artwork_count: int
+    artwork_association_count: int = 0
     disables_character: bool = False
     relationship_count: int = 0
     membership_count: int = 0

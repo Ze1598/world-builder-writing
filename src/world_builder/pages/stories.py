@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from world_builder.domain.errors import DomainError
 from world_builder.domain.models import (
     ArtworkDetailsInput,
+    ArtworkEntityKind,
     ArtworkView,
     ChapterView,
     CharacterGroupView,
@@ -16,14 +17,17 @@ from world_builder.domain.models import (
     StoryView,
     UniverseView,
 )
+from world_builder.domain.services.artworks import ArtworkService
 from world_builder.domain.services.chapters import ChapterService
 from world_builder.domain.services.characters import CharacterService
 from world_builder.domain.services.groups import CharacterGroupService
 from world_builder.domain.services.stories import StoryService
+from world_builder.pages.artwork_links import render_existing_artwork_picker
 from world_builder.pages.artwork_previews import (
-    render_gallery_preview,
+    render_artwork_gallery,
     render_preview_styles,
 )
+from world_builder.pages.context import render_universe_filter
 from world_builder.pages.notifications import queue_toast, render_queued_toast, show_toast
 
 SELECTED_STORY_KEY = "selected_story_id"
@@ -223,17 +227,15 @@ def _render_create(
 
 
 def _select_story(stories: list[StoryView]) -> StoryView | None:
-    st.sidebar.divider()
-    st.sidebar.subheader("Story view")
-    st.sidebar.caption(f"{len(stories)} story or stories")
     if not stories:
+        st.selectbox("Story", ["No stories in this universe"], disabled=True)
         return None
     by_id = {story.id: story for story in stories}
     selected_id = st.session_state.get(SELECTED_STORY_KEY)
     if selected_id not in by_id:
         selected_id = stories[0].id
     options = list(by_id)
-    selected_id = st.sidebar.selectbox(
+    selected_id = st.selectbox(
         "Story",
         options,
         index=options.index(selected_id),
@@ -253,49 +255,48 @@ def _render_edit(
     artworks: list[ArtworkView],
 ) -> None:
     prefix = f"edit-story-{story.id}"
-    with st.expander("Edit story"):
-        content_key = _markdown_import(prefix, story.content)
-        chapters_by_id = {chapter.id: chapter for chapter in chapters}
-        with st.form(f"{prefix}-form"):
-            st.caption("\\* Required fields")
-            title = st.text_input("Story title *", value=story.title, max_chars=200)
-            chapter_options = list(chapters_by_id)
-            chapter_id = st.selectbox(
-                "Chapter *",
-                chapter_options,
-                index=chapter_options.index(story.chapter_id),
-                format_func=lambda item_id: chapters_by_id[item_id].title,
-            )
-            content = st.text_area("Story Markdown", height=500, key=content_key)
-            character_ids, group_ids, artwork_ids = _association_fields(
-                prefix,
-                characters,
-                groups,
-                artworks,
-                character_ids=story.character_ids,
-                group_ids=story.group_ids,
-                artwork_ids=story.artwork_ids,
-            )
-            submitted = st.form_submit_button("Save story", type="primary", icon=":material/save:")
-        if submitted:
-            values = _story_values(
-                story.universe_id,
-                chapter_id,
-                title,
-                content,
-                character_ids,
-                group_ids,
-                artwork_ids,
-            )
-            if values is None:
-                return
-            try:
-                service.update_story(story.id, values)
-            except (DomainError, ValueError) as error:
-                show_toast(str(error), kind="error")
-            else:
-                queue_toast("Story updated.", kind="success")
-                st.rerun()
+    content_key = _markdown_import(prefix, story.content)
+    chapters_by_id = {chapter.id: chapter for chapter in chapters}
+    with st.form(f"{prefix}-form", border=False):
+        st.caption("\\* Required fields")
+        title = st.text_input("Story title *", value=story.title, max_chars=200)
+        chapter_options = list(chapters_by_id)
+        chapter_id = st.selectbox(
+            "Chapter *",
+            chapter_options,
+            index=chapter_options.index(story.chapter_id),
+            format_func=lambda item_id: chapters_by_id[item_id].title,
+        )
+        content = st.text_area("Story Markdown", height=500, key=content_key)
+        character_ids, group_ids, artwork_ids = _association_fields(
+            prefix,
+            characters,
+            groups,
+            artworks,
+            character_ids=story.character_ids,
+            group_ids=story.group_ids,
+            artwork_ids=story.artwork_ids,
+        )
+        submitted = st.form_submit_button("Save story", type="primary", icon=":material/save:")
+    if submitted:
+        values = _story_values(
+            story.universe_id,
+            chapter_id,
+            title,
+            content,
+            character_ids,
+            group_ids,
+            artwork_ids,
+        )
+        if values is None:
+            return
+        try:
+            service.update_story(story.id, values)
+        except (DomainError, ValueError) as error:
+            show_toast(str(error), kind="error")
+        else:
+            queue_toast("Story updated.", kind="success")
+            st.rerun()
 
 
 def _render_add_artwork(service: StoryService, story: StoryView) -> None:
@@ -326,18 +327,32 @@ def _render_add_artwork(service: StoryService, story: StoryView) -> None:
             st.rerun()
 
 
-def _render_gallery(service: StoryService, story: StoryView, artworks: list[ArtworkView]) -> None:
-    by_id = {artwork.id: artwork for artwork in artworks}
-    linked = [by_id[item_id] for item_id in story.artwork_ids if item_id in by_id]
-    if not linked:
-        return
+def _render_gallery(
+    service: StoryService,
+    story: StoryView,
+    artworks: list[ArtworkView],
+    artwork_service: ArtworkService | None,
+) -> None:
+    if artwork_service is not None:
+        linked = artwork_service.list_gallery_for_story(story.id)
+    else:
+        by_id = {artwork.id: artwork for artwork in artworks}
+        linked = [by_id[item_id] for item_id in story.artwork_ids if item_id in by_id]
     st.subheader("Artwork")
-    columns = st.columns(3)
-    for index, artwork in enumerate(linked):
-        with columns[index % 3], st.container(border=True):
-            render_gallery_preview(service.storage, artwork)
-            st.markdown(f"**{artwork.title}**")
-            st.markdown(artwork.description)
+    if artwork_service is not None:
+        render_existing_artwork_picker(
+            artwork_service,
+            universe_id=story.universe_id,
+            entity_kind=ArtworkEntityKind.STORY,
+            entity_id=story.id,
+            linked_artworks=linked,
+        )
+    render_artwork_gallery(
+        service.storage,
+        linked,
+        empty_message="No artwork is linked to this story.",
+        show_primary_badge=False,
+    )
 
 
 def _render_remove(service: StoryService, story: StoryView) -> None:
@@ -373,11 +388,20 @@ def render_stories(
     character_service: CharacterService,
     group_service: CharacterGroupService,
     selected_universe: UniverseView | None,
+    artwork_service: ArtworkService | None = None,
+    universes: list[UniverseView] | None = None,
 ) -> None:
     """Render story placeholders, content, associations, and artwork."""
     render_preview_styles()
     st.title("Stories")
     render_queued_toast()
+    st.subheader("Filters")
+    universe_filter, story_filter = st.columns(2, vertical_alignment="bottom")
+    with universe_filter:
+        selected_universe = render_universe_filter(
+            universes or ([selected_universe] if selected_universe is not None else []),
+            selected_universe,
+        )
     if selected_universe is None:
         st.warning("Create and select a universe before managing stories.")
         return
@@ -385,6 +409,9 @@ def render_stories(
     characters = character_service.list_for_universe(selected_universe.id)
     groups = group_service.list_for_universe(selected_universe.id)
     artworks = story_service.list_available_artworks(selected_universe.id)
+    stories = story_service.list_for_universe(selected_universe.id)
+    with story_filter:
+        selected = _select_story(stories)
     _render_create(
         story_service,
         selected_universe,
@@ -393,32 +420,19 @@ def render_stories(
         groups,
         artworks,
     )
-    stories = story_service.list_for_universe(selected_universe.id)
-    selected = _select_story(stories)
     if selected is None:
         if chapters:
             st.info("Create a story placeholder in this universe to begin.")
         return
-    st.divider()
-    st.caption(f"Chapter: {selected.chapter_title}")
-    st.title(selected.title)
-    if selected.content:
-        st.markdown(selected.content)
-    else:
-        st.info("This story is a placeholder with no written content.")
-    with st.container(horizontal=True):
-        st.download_button(
-            "Download Markdown",
-            data=selected.content,
-            file_name=f"{selected.title}.md",
-            mime="text/markdown",
-            icon=":material/download:",
-        )
-    if selected.character_names:
-        st.markdown(f"**Characters:** {', '.join(selected.character_names)}")
-    if selected.group_names:
-        st.markdown(f"**Groups:** {', '.join(selected.group_names)}")
-    _render_gallery(story_service, selected, artworks)
+    st.subheader("Story details")
     _render_edit(story_service, selected, chapters, characters, groups, artworks)
+    st.download_button(
+        "Download Markdown",
+        data=selected.content,
+        file_name=f"{selected.title}.md",
+        mime="text/markdown",
+        icon=":material/download:",
+    )
+    _render_gallery(story_service, selected, artworks, artwork_service)
     _render_add_artwork(story_service, selected)
     _render_remove(story_service, selected)

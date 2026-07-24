@@ -127,6 +127,9 @@ class Character(TimestampMixin, Base):
     story_links: Mapped[list["StoryCharacter"]] = relationship(
         back_populates="character", cascade="all, delete-orphan", passive_deletes=True
     )
+    artwork_links: Mapped[list["ArtworkCharacter"]] = relationship(
+        back_populates="character", cascade="all, delete-orphan", passive_deletes=True
+    )
 
 
 class CharacterGroup(TimestampMixin, Base):
@@ -155,6 +158,9 @@ class CharacterGroup(TimestampMixin, Base):
         passive_deletes=True,
     )
     story_links: Mapped[list["StoryGroup"]] = relationship(
+        back_populates="group", cascade="all, delete-orphan", passive_deletes=True
+    )
+    artwork_links: Mapped[list["ArtworkGroup"]] = relationship(
         back_populates="group", cascade="all, delete-orphan", passive_deletes=True
     )
 
@@ -221,6 +227,9 @@ class Chapter(TimestampMixin, Base):
         back_populates="chapter", cascade="all, delete-orphan", passive_deletes=True
     )
     stories: Mapped[list["Story"]] = relationship(back_populates="chapter")
+    artwork_links: Mapped[list["ArtworkChapter"]] = relationship(
+        back_populates="chapter", cascade="all, delete-orphan", passive_deletes=True
+    )
 
 
 class ChapterCharacter(Base):
@@ -348,6 +357,63 @@ class StoryArtwork(Base):
     artwork: Mapped["Artwork"] = relationship(back_populates="story_links")
 
 
+class ArtworkCharacter(Base):
+    """Reusable artwork association to a character."""
+
+    __tablename__ = "artwork_characters"
+
+    artwork_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("artworks.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    character_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("characters.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    artwork: Mapped["Artwork"] = relationship(back_populates="character_links")
+    character: Mapped[Character] = relationship(back_populates="artwork_links")
+
+
+class ArtworkGroup(Base):
+    """Reusable artwork association to a character group."""
+
+    __tablename__ = "artwork_groups"
+
+    artwork_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("artworks.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    group_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("character_groups.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    artwork: Mapped["Artwork"] = relationship(back_populates="group_links")
+    group: Mapped[CharacterGroup] = relationship(back_populates="artwork_links")
+
+
+class ArtworkChapter(Base):
+    """Reusable artwork association to a chapter."""
+
+    __tablename__ = "artwork_chapters"
+
+    artwork_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("artworks.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    chapter_id: Mapped[str] = mapped_column(
+        String(IDENTIFIER_LENGTH),
+        ForeignKey("chapters.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    artwork: Mapped["Artwork"] = relationship(back_populates="chapter_links")
+    chapter: Mapped[Chapter] = relationship(back_populates="artwork_links")
+
+
 class LookupCategory(TimestampMixin, Base):
     """Global definition of a user-managed vocabulary category."""
 
@@ -456,5 +522,14 @@ class Artwork(TimestampMixin, Base):
 
     universe: Mapped[Universe | None] = relationship(back_populates="artworks")
     story_links: Mapped[list[StoryArtwork]] = relationship(
+        back_populates="artwork", cascade="all, delete-orphan", passive_deletes=True
+    )
+    character_links: Mapped[list[ArtworkCharacter]] = relationship(
+        back_populates="artwork", cascade="all, delete-orphan", passive_deletes=True
+    )
+    group_links: Mapped[list[ArtworkGroup]] = relationship(
+        back_populates="artwork", cascade="all, delete-orphan", passive_deletes=True
+    )
+    chapter_links: Mapped[list[ArtworkChapter]] = relationship(
         back_populates="artwork", cascade="all, delete-orphan", passive_deletes=True
     )

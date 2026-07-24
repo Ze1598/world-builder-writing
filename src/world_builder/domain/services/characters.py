@@ -125,16 +125,23 @@ class CharacterService:
         with database_session(self._session_factory) as session:
             character = self._require_character(CharacterRepository(session), character_id)
             self._validate_move(session, character, target_universe_id)
-            artworks = ArtworkRepository(session).list_for_character(character_id)
+            artwork_repository = ArtworkRepository(session)
+            artworks = artwork_repository.list_for_character(character_id)
             self._assert_move_artwork_invariants(session, character_id, artworks)
             membership_count = GroupMembershipRepository(session).count_for_character(character_id)
             chapter_link_count = ChapterRepository(session).count_links_for_character(character_id)
             story_link_count = StoryRepository(session).count_links_for_character(character_id)
+            artwork_association_count = (
+                0
+                if target_universe_id is None
+                else sum(artwork_repository.usage_count(artwork.id) for artwork in artworks)
+            )
             return CharacterMovePreflight(
                 character_id=character.id,
                 source_universe_id=character.universe_id,
                 target_universe_id=target_universe_id,
                 artwork_count=len(artworks),
+                artwork_association_count=artwork_association_count,
                 disables_character=character.universe_id is not None and character.is_active,
                 membership_count=membership_count,
                 story_link_count=story_link_count,
@@ -185,6 +192,10 @@ class CharacterService:
                     StoryRepository(session).delete_links_for_character(character_id)
                 character_repository.move(character, target_universe_id)
                 for artwork, destination in planned_paths:
+                    if target_universe_id is not None:
+                        artwork_repository.delete_incompatible_associations(
+                            artwork.id, target_universe_id
+                        )
                     artwork_repository.move_character_artwork(
                         artwork,
                         universe_id=target_universe_id,

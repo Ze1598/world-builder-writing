@@ -8,18 +8,22 @@ from pydantic import ValidationError
 from world_builder.domain.errors import DomainError
 from world_builder.domain.models import (
     ArtworkDetailsInput,
+    ArtworkEntityKind,
     CharacterGroupInput,
     CharacterGroupView,
     CharacterView,
     UniverseView,
 )
+from world_builder.domain.services.artworks import ArtworkService
 from world_builder.domain.services.characters import CharacterService
 from world_builder.domain.services.groups import CharacterGroupService
 from world_builder.domain.services.stories import StoryService
+from world_builder.pages.artwork_links import render_existing_artwork_picker
 from world_builder.pages.artwork_previews import (
-    render_gallery_preview,
+    render_artwork_gallery,
     render_preview_styles,
 )
+from world_builder.pages.context import render_universe_filter
 from world_builder.pages.notifications import queue_toast, render_queued_toast, show_toast
 
 SELECTED_GROUP_KEY = "selected_group_id"
@@ -116,22 +120,19 @@ def _render_create_form(service: CharacterGroupService, selected_universe: Unive
             st.rerun()
 
 
-def _select_group_sidebar(
+def _select_group(
     service: CharacterGroupService, selected_universe: UniverseView
 ) -> CharacterGroupView | None:
     groups = service.list_for_universe(selected_universe.id)
-    st.sidebar.divider()
-    st.sidebar.subheader("Group view")
-    st.sidebar.caption(f"{len(groups)} group(s)")
     if not groups:
-        st.sidebar.caption("No groups exist in this universe.")
+        st.selectbox("Character group", ["No groups in this universe"], disabled=True)
         return None
     groups_by_id = {group.id: group for group in groups}
     selected_id = st.session_state.get(SELECTED_GROUP_KEY)
     if selected_id not in groups_by_id:
         selected_id = groups[0].id
     option_ids = list(groups_by_id)
-    selected_id = st.sidebar.selectbox(
+    selected_id = st.selectbox(
         "Character group",
         options=option_ids,
         index=option_ids.index(selected_id),
@@ -143,24 +144,28 @@ def _select_group_sidebar(
 
 
 def _render_edit_group(service: CharacterGroupService, group: CharacterGroupView) -> None:
-    with st.expander("Edit group"):
-        with st.form(f"edit-group-{group.id}"):
-            st.caption("\\* Required fields")
-            name = st.text_input("Group name *", value=group.name, max_chars=200)
-            description = st.text_area("Group description", value=group.description, height=200)
-            submitted = st.form_submit_button("Save group", type="primary", icon=":material/save:")
-        if not submitted:
-            return
-        values = _group_values(group.universe_id, name, description)
-        if values is None:
-            return
-        try:
-            service.update_group(group.id, values)
-        except (DomainError, ValueError) as error:
-            show_toast(str(error), kind="error")
-        else:
-            queue_toast("Group updated.", kind="success")
-            st.rerun()
+    with st.form(f"edit-group-{group.id}", border=False):
+        st.caption("\\* Required fields")
+        name = st.text_input("Group name *", value=group.name, max_chars=200)
+        description = st.text_area("Group description", value=group.description, height=200)
+        submitted = st.form_submit_button("Save group", type="primary", icon=":material/save:")
+    if not submitted:
+        return
+    values = _group_values(group.universe_id, name, description)
+    if values is None:
+        return
+    try:
+        service.update_group(group.id, values)
+    except (DomainError, ValueError) as error:
+        show_toast(str(error), kind="error")
+    else:
+        queue_toast("Group updated.", kind="success")
+        st.rerun()
+
+
+def _render_group_details(service: CharacterGroupService, group: CharacterGroupView) -> None:
+    st.subheader("Group details")
+    _render_edit_group(service, group)
 
 
 def _render_add_artwork(service: CharacterGroupService, group: CharacterGroupView) -> None:
@@ -270,12 +275,9 @@ def _render_profile(
     character_service: CharacterService,
     group: CharacterGroupView,
     story_service: StoryService | None,
+    artwork_service: ArtworkService | None,
 ) -> None:
-    st.subheader(group.name)
-    if group.description:
-        st.markdown(group.description)
-    else:
-        st.caption("No group description.")
+    _render_group_details(group_service, group)
     if story_service is not None:
         stories = story_service.list_for_group(group.id)
         with st.expander(f"Linked stories ({len(stories)})"):
@@ -284,22 +286,29 @@ def _render_profile(
                     st.markdown(f"- **{story.title}** · {story.chapter_title}")
             else:
                 st.caption("No stories link to this group.")
-    _render_edit_group(group_service, group)
     st.divider()
     _render_memberships(group_service, character_service, group)
     st.divider()
     st.subheader("Artwork gallery")
     _render_add_artwork(group_service, group)
-    artworks = group_service.list_artworks(group.id)
-    if not artworks:
-        st.info("No artwork has been added to this group.")
-        return
-    columns = st.columns(3)
-    for index, artwork in enumerate(artworks):
-        with columns[index % 3], st.container(border=True):
-            render_gallery_preview(group_service.storage, artwork)
-            st.markdown(f"**{artwork.title}**")
-            st.markdown(artwork.description)
+    artworks = (
+        artwork_service.list_gallery_for_group(group.id)
+        if artwork_service is not None
+        else group_service.list_artworks(group.id)
+    )
+    if artwork_service is not None:
+        render_existing_artwork_picker(
+            artwork_service,
+            universe_id=group.universe_id,
+            entity_kind=ArtworkEntityKind.GROUP,
+            entity_id=group.id,
+            linked_artworks=artworks,
+        )
+    render_artwork_gallery(
+        group_service.storage,
+        artworks,
+        empty_message="No artwork has been added or linked to this group.",
+    )
 
 
 def render_groups(
@@ -307,18 +316,34 @@ def render_groups(
     character_service: CharacterService,
     selected_universe: UniverseView | None,
     story_service: StoryService | None = None,
+    artwork_service: ArtworkService | None = None,
+    universes: list[UniverseView] | None = None,
 ) -> None:
     """Render universe-scoped group management and the selected profile."""
     render_preview_styles()
     st.title("Character groups")
     render_queued_toast()
+    st.subheader("Filters")
+    universe_filter, group_filter = st.columns(2, vertical_alignment="bottom")
+    with universe_filter:
+        selected_universe = render_universe_filter(
+            universes or ([selected_universe] if selected_universe is not None else []),
+            selected_universe,
+        )
     if selected_universe is None:
         st.warning("Create and select a universe before managing character groups.")
         return
+    with group_filter:
+        selected = _select_group(group_service, selected_universe)
     _render_create_form(group_service, selected_universe)
-    st.divider()
-    selected = _select_group_sidebar(group_service, selected_universe)
     if selected is None:
         st.info("Create a character group in this universe to begin.")
         return
-    _render_profile(group_service, character_service, selected, story_service)
+    st.divider()
+    _render_profile(
+        group_service,
+        character_service,
+        selected,
+        story_service,
+        artwork_service,
+    )

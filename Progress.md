@@ -4,12 +4,117 @@ This file is the durable execution log for the project. Update it at the end of 
 
 ## Current status
 
-- **Current roadmap feature:** F-10 — Artwork associations and galleries
+- **Current roadmap feature:** F-11 — Current and historical character relationships
 - **Feature status:** Not started
-- **Last completed feature:** F-09 — Story CRUD and Markdown content
-- **Last updated:** 2026-07-23
+- **Last completed feature:** F-10 — Artwork associations and galleries
+- **Last updated:** 2026-07-24
 
 ## Completed work
+
+### 2026-07-24 — Artwork gallery linking and profile layout refinement
+
+**Status:** Complete
+
+**Implemented:**
+
+- Removed saved Markdown preview panels from character, group, chapter, and story editors.
+- Moved the character Linked stories expander outside the profile columns so it spans the page width.
+- Standardized artwork gallery cards with one fixed native Streamlit container height.
+- Added one reusable visual existing-artwork picker to character, group, chapter, and story galleries.
+- Added atomic multi-artwork association in the artwork service.
+- Preserved character, group, and story upload workflows for new artwork.
+- Removed primary-profile labels from story artwork galleries.
+- Replaced the Character Status and Artwork Location segmented controls with select dropdowns.
+
+**Verification:**
+
+- `just ready` passed Ruff formatting and linting, strict mypy, and all 79 tests.
+- Association tests cover atomic multi-artwork linking to one entity.
+
+**Backlog created:**
+
+- None.
+
+### 2026-07-24 — Page-local filter matrices and direct content editing
+
+**Status:** Complete
+
+**Implemented:**
+
+- Kept every page title as the first item in the page canvas.
+- Added explicit Filters sections beneath content-page titles.
+- Arranged universe and entity-specific filters in native Streamlit column rows.
+- Moved managed-lookup universe selection below its page title.
+- Replaced separate character, group, chapter, and story display/edit sections with always-visible batched forms.
+- Added saved Markdown previews beside the group, chapter, and story editors and within the character profile.
+- Kept creation, movement, chronology, upload, and destructive actions separate from canonical content editing.
+
+**Verification:**
+
+- `just ready` passed Ruff formatting and linting, strict mypy, and all 79 tests.
+- Live inspection confirmed the title-first character and story layouts, page-local filters, persistent editors, saved previews, and top navigation.
+
+**Backlog created:**
+
+- None.
+
+### 2026-07-24 — Top navigation and page-local filter layout
+
+**Status:** Complete
+
+**Implemented:**
+
+- Moved application navigation from the sidebar to Streamlit's native top navigation.
+- Moved the global universe selector into the main canvas above page content.
+- Moved character status/profile, group, chapter, story, and artwork selectors to the top of their respective pages.
+- Removed every application use of `st.sidebar`.
+- Kept existing selection state and post-create selection behavior.
+
+**Verification:**
+
+- `just check` passed Ruff linting and formatting, strict mypy, and all 79 tests.
+- Updated the character page test to assert the page-local filter wording.
+
+**Backlog created:**
+
+- None.
+
+### 2026-07-24 — F-10: Artwork associations and galleries
+
+**Status:** Complete
+
+**Implemented:**
+
+- Added reusable artwork links to characters, groups, chapters, and stories without duplicating managed image files.
+- Added reverse galleries to all four linked entity types and an Artwork page showing ownership and every usage.
+- Added ownership transfer between characters, groups, and the global Unassigned pool.
+- Added cross-universe transfer preflight and transactional removal of incompatible associations through shared SQLAlchemy table metadata.
+- Integrated character movement so every character-owned artwork moves with the character and drops associations that belong to the previous universe.
+- Added safe artwork deletion that quarantines the file, removes all associations and metadata in one database transaction, and restores the file when the transaction fails.
+- Prevented ownership changes and deletion of primary character artwork until another primary is selected.
+
+**Files or migrations:**
+
+- `alembic/versions/20260724_0007_artwork_associations.py`
+- Artwork association persistence mappings, repository operations, domain views, service workflows, and Artwork page
+- Reusable artwork preview/gallery integration for character, group, chapter, and story pages
+
+**Verification:**
+
+- `just ready` passed Ruff formatting and linting, strict mypy, and all 79 tests.
+- Tests cover every association type, reverse galleries, single-file reuse, universe isolation, ownership transfer, Unassigned preservation, primary-artwork protection, safe deletion, character-move detachment, migrations, and Artwork page rendering.
+- The local database migrated to `20260724_0007`; the migration created a schema backup in the ignored data directory.
+- The known iCloud `.pth` failure occurred before migration and was resolved with `just rebuild-environment`.
+
+**Decisions or deviations:**
+
+- Artwork associations record linkage only; the previously planned optional association role was removed.
+- Moving artwork into an assigned universe removes incompatible links. Moving it to global Unassigned preserves existing links.
+- Direct character movement carries all character-owned artwork and removes each artwork association tied to the previous universe.
+
+**Backlog created:**
+
+- None.
 
 ### 2026-07-23 — F-09: Story CRUD and Markdown content
 

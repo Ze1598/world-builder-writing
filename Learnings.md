@@ -123,3 +123,27 @@ Keep the form submit button enabled. On submission, validate the confirmation va
 **Caveat**
 
 Dynamic enablement can be used when the controlling widget is outside the form, because that widget triggers a rerun.
+
+## SQLAlchemy persistence
+
+### Uniform mutations across association tables require Core table metadata
+
+**Symptom**
+
+Code that applies the same delete operation to several declarative association models either duplicates one operation per model or fails strict typing with errors such as:
+
+```text
+FromClause has no attribute "delete"
+```
+
+**Cause**
+
+SQLAlchemy's declarative `__table__` attribute is typed as the broad `FromClause` interface even though mapped database tables resolve to concrete `Table` objects at runtime. ORM model-class unions also produce incompatible generic types when one variable is reused across unrelated mapped classes.
+
+**Resolution**
+
+Validate and narrow each declarative `__table__` value to `sqlalchemy.Table` once at the repository boundary. Store the resulting tables and their entity-column metadata in shared collections, then iterate those collections for transactional Core `DELETE` statements.
+
+**Caveat**
+
+Core bulk mutations bypass loaded ORM relationship collections. Use them within a short transaction where those collections are not subsequently treated as authoritative, or expire affected ORM state before reading it again.

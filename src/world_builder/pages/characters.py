@@ -8,17 +8,21 @@ from pydantic import ValidationError
 from world_builder.domain.errors import DomainError
 from world_builder.domain.models import (
     ArtworkDetailsInput,
+    ArtworkEntityKind,
     CharacterInput,
     CharacterView,
     UniverseView,
 )
+from world_builder.domain.services.artworks import ArtworkService
 from world_builder.domain.services.characters import CharacterService
 from world_builder.domain.services.stories import StoryService
+from world_builder.pages.artwork_links import render_existing_artwork_picker
 from world_builder.pages.artwork_previews import (
-    render_gallery_preview,
+    render_artwork_gallery,
     render_preview_styles,
     render_profile_preview,
 )
+from world_builder.pages.context import render_universe_filter
 from world_builder.pages.notifications import queue_toast, render_queued_toast, show_toast
 
 SELECTED_CHARACTER_KEY = "selected_character_id"
@@ -108,17 +112,20 @@ def _status_filter(label: str) -> bool | None:
     return {"All": None, "Active": True, "Disabled": False}[label]
 
 
-def _select_character_sidebar(
-    service: CharacterService, selected_universe: UniverseView | None
-) -> CharacterView | None:
-    st.sidebar.divider()
-    st.sidebar.subheader("Character view")
-    status_label = st.sidebar.segmented_control(
-        "Status filter",
-        options=["All", "Active", "Disabled"],
-        default="All",
-        key="character-status-filter",
-    )
+def _select_character(
+    service: CharacterService,
+    selected_universe: UniverseView | None,
+    universes: list[UniverseView],
+) -> tuple[UniverseView | None, CharacterView | None]:
+    universe_filter, status_filter, character_filter = st.columns(3, vertical_alignment="bottom")
+    with universe_filter:
+        selected_universe = render_universe_filter(universes, selected_universe)
+    with status_filter:
+        status_label = st.selectbox(
+            "Status",
+            options=["All", "Active", "Disabled"],
+            key="character-status-filter",
+        )
     active = _status_filter(status_label or "All")
     selected_id = st.session_state.get(SELECTED_CHARACTER_KEY)
     universe_characters = (
@@ -139,10 +146,11 @@ def _select_character_sidebar(
             ):
                 universe_characters.append(selected_character)
     visible = universe_characters + unassigned
-    st.sidebar.caption(f"{len(universe_characters)} universe · {len(unassigned)} unassigned")
     if not visible:
-        st.sidebar.caption("No characters match this filter.")
-        return None
+        with character_filter:
+            st.selectbox("Character", ["No matching characters"], disabled=True)
+        st.caption(f"{len(universe_characters)} universe · {len(unassigned)} unassigned")
+        return selected_universe, None
 
     visible_by_id = {character.id: character for character in visible}
     if selected_id not in visible_by_id:
@@ -158,37 +166,36 @@ def _select_character_sidebar(
         for character in visible
     }
     option_ids = list(visible_by_id)
-    selected_id = st.sidebar.selectbox(
-        "Character profile",
-        options=option_ids,
-        index=option_ids.index(selected_id),
-        format_func=labels.__getitem__,
-        key="character-profile-selector",
-    )
+    with character_filter:
+        selected_id = st.selectbox(
+            "Character",
+            options=option_ids,
+            index=option_ids.index(selected_id),
+            format_func=labels.__getitem__,
+            key="character-profile-selector",
+        )
     st.session_state[SELECTED_CHARACTER_KEY] = selected_id
-    return visible_by_id[selected_id]
+    st.caption(f"{len(universe_characters)} universe · {len(unassigned)} unassigned")
+    return selected_universe, visible_by_id[selected_id]
 
 
 def _render_edit_profile(service: CharacterService, character: CharacterView) -> None:
-    with st.expander("Edit character"):
-        with st.form(f"edit-character-{character.id}"):
-            st.caption("\\* Required fields")
-            name = st.text_input("Character name *", value=character.name, max_chars=200)
-            summary = st.text_area("Character summary *", value=character.summary, height=240)
-            submitted = st.form_submit_button(
-                "Save character", type="primary", icon=":material/save:"
-            )
-        if submitted:
-            values = _character_values(name, summary, character.universe_id)
-            if values is None:
-                return
-            try:
-                service.update_character(character.id, values)
-            except (DomainError, ValueError) as error:
-                show_toast(str(error), kind="error")
-            else:
-                queue_toast("Character updated.", kind="success")
-                st.rerun()
+    with st.form(f"edit-character-{character.id}", border=False):
+        st.caption("\\* Required fields")
+        name = st.text_input("Character name *", value=character.name, max_chars=200)
+        summary = st.text_area("Character summary *", value=character.summary, height=240)
+        submitted = st.form_submit_button("Save character", type="primary", icon=":material/save:")
+    if submitted:
+        values = _character_values(name, summary, character.universe_id)
+        if values is None:
+            return
+        try:
+            service.update_character(character.id, values)
+        except (DomainError, ValueError) as error:
+            show_toast(str(error), kind="error")
+        else:
+            queue_toast("Character updated.", kind="success")
+            st.rerun()
 
     action = "Disable character" if character.is_active else "Re-enable character"
     if st.button(
@@ -238,6 +245,12 @@ def _render_location_change(
             return
 
         st.markdown(f"**Artwork preserved:** {preflight.artwork_count} file(s)")
+        if preflight.artwork_association_count:
+            st.warning(
+                "Moving this character will remove "
+                f"{preflight.artwork_association_count} artwork association(s) "
+                "that belong to the current universe."
+            )
         st.markdown("**Non-artwork connections removed:**")
         st.markdown(
             "\n".join(
@@ -317,51 +330,52 @@ def _render_profile(
     character: CharacterView,
     universes: list[UniverseView],
     story_service: StoryService | None,
+    artwork_service: ArtworkService | None,
 ) -> None:
-    artworks = service.list_artworks(character.id)
+    artworks = (
+        artwork_service.list_gallery_for_character(character.id)
+        if artwork_service is not None
+        else service.list_artworks(character.id)
+    )
     primary = next((artwork for artwork in artworks if artwork.is_primary), None)
     profile_image, profile_text = st.columns([1, 2])
     with profile_image:
         if primary is not None:
             render_profile_preview(service.storage, primary)
     with profile_text:
-        st.subheader(character.name)
+        st.subheader("Character details")
         st.caption(
             ("Active" if character.is_active else "Disabled")
             + (" · Unassigned" if character.universe_id is None else "")
         )
-        st.markdown(character.summary)
-        if story_service is not None:
-            stories = story_service.list_for_character(character.id)
-            with st.expander(f"Linked stories ({len(stories)})"):
-                if stories:
-                    for story in stories:
-                        st.markdown(f"- **{story.title}** · {story.chapter_title}")
-                else:
-                    st.caption("No stories link to this character.")
+        _render_edit_profile(service, character)
 
-    _render_edit_profile(service, character)
+    if story_service is not None:
+        stories = story_service.list_for_character(character.id)
+        with st.expander(f"Linked stories ({len(stories)})"):
+            if stories:
+                for story in stories:
+                    st.markdown(f"- **{story.title}** · {story.chapter_title}")
+            else:
+                st.caption("No stories link to this character.")
     _render_location_change(service, character, universes)
     st.divider()
     st.subheader("Artwork gallery")
     _render_add_artwork(service, character)
-    columns = st.columns(3)
-    for index, artwork in enumerate(artworks):
-        with columns[index % 3], st.container(border=True):
-            render_gallery_preview(service.storage, artwork)
-            st.markdown(f"**{artwork.title}**")
-            st.markdown(artwork.description)
-            if artwork.is_primary:
-                st.caption("Primary profile artwork")
-            elif st.button(
-                "Make primary",
-                key=f"make-primary-{artwork.id}",
-                icon=":material/account_circle:",
-                width="stretch",
-            ):
-                service.set_primary_artwork(character.id, artwork.id)
-                queue_toast("Primary artwork updated.", kind="success")
-                st.rerun()
+    if artwork_service is not None and character.universe_id is not None:
+        render_existing_artwork_picker(
+            artwork_service,
+            universe_id=character.universe_id,
+            entity_kind=ArtworkEntityKind.CHARACTER,
+            entity_id=character.id,
+            linked_artworks=artworks,
+        )
+    render_artwork_gallery(
+        service.storage,
+        artworks,
+        set_primary=lambda artwork_id: service.set_primary_artwork(character.id, artwork_id),
+        can_set_primary=lambda artwork: artwork.owner_id == character.id,
+    )
 
 
 def render_characters(
@@ -369,15 +383,17 @@ def render_characters(
     selected_universe: UniverseView | None,
     universes: list[UniverseView],
     story_service: StoryService | None = None,
+    artwork_service: ArtworkService | None = None,
 ) -> None:
-    """Render character creation and the sidebar-selected profile."""
+    """Render character creation and the selected profile."""
     render_preview_styles()
     st.title("Characters")
     render_queued_toast()
+    st.subheader("Filters")
+    selected_universe, selected = _select_character(service, selected_universe, universes)
     _render_create_form(service, selected_universe)
-    st.divider()
-    selected = _select_character_sidebar(service, selected_universe)
     if selected is None:
-        st.info("No characters match the current sidebar filter.")
+        st.info("No characters match the current filter.")
         return
-    _render_profile(service, selected, universes, story_service)
+    st.divider()
+    _render_profile(service, selected, universes, story_service, artwork_service)

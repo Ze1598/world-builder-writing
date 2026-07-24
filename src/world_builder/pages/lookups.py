@@ -11,6 +11,7 @@ from world_builder.domain.errors import DomainError
 from world_builder.domain.lookups import LOOKUP_DEFINITIONS_BY_CODE, RELATIONSHIP_TYPE
 from world_builder.domain.models import LookupValueInput, LookupValueView, UniverseView
 from world_builder.domain.services.lookups import LookupService
+from world_builder.pages.context import render_universe_filter
 from world_builder.pages.notifications import queue_toast, render_queued_toast, show_toast
 from world_builder.persistence.models import RelationshipDirectionality
 
@@ -81,10 +82,16 @@ def _save_frame(
 def render_lookups(
     service: LookupService,
     selected_universe: UniverseView | None,
+    universes: list[UniverseView] | None = None,
 ) -> None:
     """Render compact universe-specific lookup administration."""
     st.title("Managed lookups")
     render_queued_toast()
+    st.subheader("Filters")
+    selected_universe = render_universe_filter(
+        universes or ([selected_universe] if selected_universe is not None else []),
+        selected_universe,
+    )
     if selected_universe is None:
         st.warning("Create and select a universe before managing lookup values.")
         return

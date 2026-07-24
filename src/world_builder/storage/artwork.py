@@ -211,6 +211,26 @@ class ArtworkStorage:
         """Remove one managed file without deleting shared parent directories."""
         self.absolute_path(relative_path).unlink(missing_ok=True)
 
+    def quarantine(self, relative_path: str) -> str:
+        """Atomically move a file aside so deletion can be rolled back."""
+        source = self.absolute_path(relative_path)
+        if not source.is_file():
+            raise MissingArtworkFileError(f'Managed artwork file "{relative_path}" is missing.')
+        quarantined = PurePosixPath(
+            ".trash", f"{uuid4()}{PurePosixPath(relative_path).suffix}"
+        ).as_posix()
+        destination = self.absolute_path(quarantined)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        os.replace(source, destination)
+        return quarantined
+
+    def restore_quarantined(self, quarantined_path: str, relative_path: str) -> None:
+        """Restore a quarantined file after a failed database deletion."""
+        source = self.absolute_path(quarantined_path)
+        destination = self.absolute_path(relative_path)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        os.replace(source, destination)
+
     def missing_files(self, relative_paths: Iterable[str]) -> set[str]:
         """Return database paths whose managed files are absent."""
         return {path for path in relative_paths if not self.absolute_path(path).is_file()}
